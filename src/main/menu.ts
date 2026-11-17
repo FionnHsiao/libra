@@ -1,9 +1,23 @@
 import { app, BrowserWindow, Menu, shell, type MenuItemConstructorOptions } from 'electron'
 import { CH, type CommandId } from '../shared/protocol'
 
+const SIDEBAR_ITEM_ID = 'sidebar-toggle'
+
+let sidebarVisible = true
+
 function sendCommand(id: CommandId): void {
   const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
   win?.webContents.send(CH.command, { id })
+}
+
+export function setSidebarChecked(visible: boolean): void {
+  sidebarVisible = visible
+  const item = Menu.getApplicationMenu()?.getMenuItemById(SIDEBAR_ITEM_ID)
+  if (item) item.checked = visible
+}
+
+export function isSidebarVisible(): boolean {
+  return sidebarVisible
 }
 
 export function installMenu(): void {
@@ -50,6 +64,14 @@ export function installMenu(): void {
     {
       label: '视图',
       submenu: [
+        {
+          id: SIDEBAR_ITEM_ID,
+          label: '显示侧边栏',
+          type: 'checkbox',
+          checked: sidebarVisible,
+          accelerator: 'CmdOrCtrl+B',
+          click: () => sendCommand('toggle-sidebar')
+        },
         { label: '切换阅读 / 编辑', accelerator: 'CmdOrCtrl+E', click: () => sendCommand('toggle-mode') },
         { type: 'separator' },
         { role: 'resetZoom', label: '实际大小' },

@@ -1,17 +1,21 @@
-import { spawn, execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 
 const PROJECT = 'E:/Libra/libra'
-const FIXTURE = `${PROJECT}/test/fixtures/sample-gbk.html`
-const PORT = 9445
+const FIXTURE = `${PROJECT}/test/fixtures/another.html`
+const PORT = 9446
+const PROFILE = path.join(os.tmpdir(), 'libra-test-profile')
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-const grab = (out) => new Promise((res) => {
-  execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', `${PROJECT}/test/grab.ps1`, '-Match', 'Libra', '-Out', out], (e, so) => res(so.trim()))
+
+const run = (file, args) => new Promise((res) => {
+  execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', file, ...args], (e, so) => res(so.trim()))
 })
+const grab = (out) => run(`${PROJECT}/test/grab.ps1`, ['-Match', 'Libra', '-Out', out])
+const keys = (combo) => run(`${PROJECT}/test/keys.ps1`, ['-Match', 'Libra', '-Keys', combo])
 
 const { default: electronPath } = await import('electron')
-const child = spawn(electronPath, ['.', FIXTURE, `--remote-debugging-port=${PORT}`], { cwd: PROJECT, stdio: 'ignore' })
+const child = spawn(electronPath, ['.', FIXTURE, `--remote-debugging-port=${PORT}`, `--user-data-dir=${PROFILE}`], { cwd: PROJECT, stdio: 'ignore' })
 
 async function findTarget() {
   for (let i = 0; i < 60; i += 1) {
@@ -43,14 +47,23 @@ try {
     ws.send(JSON.stringify({ id, method: 'Runtime.evaluate', params: { expression, awaitPromise: true, returnByValue: true } }))
   })
 
-  await sleep(2500)
-  console.log(await grab(path.join(os.tmpdir(), 'libra-read.png')))
+  await sleep(2600)
+  console.log(await grab(path.join(os.tmpdir(), 'libra-outline.png')))
 
-  await evaluate(`document.querySelector('.segmented button:nth-of-type(2)').click()`)
-  await sleep(1500)
-  console.log(await grab(path.join(os.tmpdir(), 'libra-edit.png')))
+  console.log(await keys('^b'))
+  await sleep(900)
+  const hidden = await evaluate(`document.querySelectorAll('.sidebar').length`)
+  console.log('sidebar after ^b:', hidden)
+  console.log(await grab(path.join(os.tmpdir(), 'libra-nosidebar.png')))
+
+  console.log(await keys('^b'))
+  await sleep(700)
+  const shown = await evaluate(`document.querySelectorAll('.sidebar').length`)
+  console.log('sidebar after second ^b:', shown)
 } finally {
   ws?.close()
-  child.kill()
-  await sleep(600)
+  await new Promise((resolve) => {
+    if (!child.pid) { resolve(); return }
+    execFile('taskkill', ['/PID', String(child.pid), '/T', '/F'], () => resolve())
+  })
 }

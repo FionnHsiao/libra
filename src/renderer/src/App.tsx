@@ -1,6 +1,6 @@
 import type { EditorView } from '@codemirror/view'
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
-import type { DocumentData, FolderListing, PreviewRect } from '../../shared/protocol'
+import type { DocumentData, FolderListing, OutlineItem, PreviewRect } from '../../shared/protocol'
 import { Editor } from './Editor'
 import { PreviewPane } from './PreviewPane'
 import { Sidebar } from './Sidebar'
@@ -55,11 +55,14 @@ export function App(): ReactElement {
   const [mode, setMode] = useState<Mode>('read')
   const [cursor, setCursor] = useState<Cursor>({ line: 1, column: 1 })
   const [folder, setFolder] = useState<FolderListing | null>(null)
+  const [outline, setOutline] = useState<OutlineItem[]>([])
   const [status, setStatus] = useState<string | null>(null)
+  const [sidebarVisible, setSidebarVisible] = useState(true)
 
   const viewRef = useRef<EditorView | null>(null)
   const docRef = useRef<DocumentData | null>(null)
   const dirtyRef = useRef(false)
+  const sidebarRef = useRef(true)
 
   const markDirty = useCallback((value: boolean) => {
     dirtyRef.current = value
@@ -73,6 +76,7 @@ export function App(): ReactElement {
       markDirty(false)
       setCursor({ line: 1, column: 1 })
       setDocKey((key) => key + 1)
+      setOutline([])
       void window.libra.loadPreview(next.path).catch(() => undefined)
       window.libra
         .listFolder(dirName(next.path))
@@ -170,6 +174,17 @@ export function App(): ReactElement {
     window.libra.setPreviewBounds(rect)
   }, [])
 
+  const toggleSidebar = useCallback(() => {
+    const next = !sidebarRef.current
+    sidebarRef.current = next
+    setSidebarVisible(next)
+    window.libra.setSidebarVisible(next)
+  }, [])
+
+  const handleOutlineJump = useCallback((index: number) => {
+    window.libra.scrollPreviewTo(index)
+  }, [])
+
   useEffect(() => {
     window.libra.setDirty(dirty)
   }, [dirty])
@@ -197,6 +212,10 @@ export function App(): ReactElement {
         setMode((current) => (current === 'read' ? 'edit' : 'read'))
         return
       }
+      if (message.id === 'toggle-sidebar') {
+        toggleSidebar()
+        return
+      }
       void saveDocument().then((ok) => window.libra.reportSave(ok))
     })
     const offOpened = window.libra.onFileOpened((path) => {
@@ -205,14 +224,19 @@ export function App(): ReactElement {
     const offNavigate = window.libra.onPreviewNavigate((path) => {
       void openPath(path)
     })
+    const offOutline = window.libra.onOutline((items) => {
+      setOutline(items)
+    })
+    window.libra.setSidebarVisible(sidebarRef.current)
     window.libra.ready()
 
     return () => {
       offCommand()
       offOpened()
       offNavigate()
+      offOutline()
     }
-  }, [openPath, openViaDialog, saveDocument, saveDocumentAs])
+  }, [openPath, openViaDialog, saveDocument, saveDocumentAs, toggleSidebar])
 
   useEffect(() => {
     const handleDragOver = (event: DragEvent): void => {
@@ -286,12 +310,14 @@ export function App(): ReactElement {
       </header>
 
       <div className="body">
-        {doc && folder ? (
+        {doc && folder && sidebarVisible ? (
           <Sidebar
             dir={folder.dir}
             files={folder.files}
             activePath={doc.path}
+            outline={outline}
             onSelect={(path) => void openPath(path)}
+            onOutlineJump={handleOutlineJump}
           />
         ) : null}
 

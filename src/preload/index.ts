@@ -3,6 +3,7 @@ import {
   CH,
   type CommandMessage,
   type LibraApi,
+  type OutlineItem,
   type PreviewRect
 } from '../shared/protocol'
 
@@ -16,6 +17,8 @@ const api: LibraApi = {
   loadPreview: (path) => ipcRenderer.invoke(CH.previewLoad, path),
   reloadPreview: () => ipcRenderer.send(CH.previewReload),
   setPreviewBounds: (rect: PreviewRect | null) => ipcRenderer.send(CH.previewBounds, rect),
+  scrollPreviewTo: (index) => ipcRenderer.send(CH.previewScrollTo, index),
+  setSidebarVisible: (visible) => ipcRenderer.send(CH.sidebarVisible, visible),
   setDirty: (dirty) => ipcRenderer.send(CH.setDirty, dirty),
   reportSave: (ok) => ipcRenderer.send(CH.saveDone, { ok }),
   ready: () => ipcRenderer.send(CH.ready),
@@ -38,6 +41,13 @@ const api: LibraApi = {
     ipcRenderer.on(CH.previewNavigate, handler)
     return () => {
       ipcRenderer.removeListener(CH.previewNavigate, handler)
+    }
+  },
+  onOutline: (callback) => {
+    const handler = (_event: unknown, items: OutlineItem[]): void => callback(items)
+    ipcRenderer.on(CH.previewOutline, handler)
+    return () => {
+      ipcRenderer.removeListener(CH.previewOutline, handler)
     }
   },
   onCommand: (callback) => {

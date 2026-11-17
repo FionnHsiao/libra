@@ -13,6 +13,7 @@ import {
   type SavePayload
 } from '../shared/protocol'
 import { readDocument, writeTextAtomic } from './files'
+import { setSidebarChecked } from './menu'
 import { getPreviewHost } from './preview'
 
 const allowedExtensions = new Set<string>(ALLOWED_EXTENSIONS)
@@ -225,6 +226,17 @@ export function registerIpc(): void {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return
     getPreviewHost(win.webContents.id)?.setBounds(parseRect(rawRect))
+  })
+
+  ipcMain.on(CH.previewScrollTo, (event, rawIndex: unknown) => {
+    if (typeof rawIndex !== 'number' || !Number.isFinite(rawIndex)) return
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    getPreviewHost(win.webContents.id)?.scrollTo(rawIndex)
+  })
+
+  ipcMain.on(CH.sidebarVisible, (_event, value: unknown) => {
+    setSidebarChecked(value === true)
   })
 
   ipcMain.on(CH.setDirty, (_event, value: unknown) => {

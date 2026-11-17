@@ -41,6 +41,12 @@ export interface FolderListing {
   files: FileEntry[]
 }
 
+export interface OutlineItem {
+  index: number
+  level: number
+  text: string
+}
+
 export interface PreviewRect {
   x: number
   y: number
@@ -48,7 +54,7 @@ export interface PreviewRect {
   height: number
 }
 
-export type CommandId = 'open' | 'save' | 'save-as' | 'toggle-mode'
+export type CommandId = 'open' | 'save' | 'save-as' | 'toggle-mode' | 'toggle-sidebar'
 
 export interface CommandMessage {
   id: CommandId
@@ -64,12 +70,15 @@ export interface LibraApi {
   loadPreview(path: string): Promise<void>
   reloadPreview(): void
   setPreviewBounds(rect: PreviewRect | null): void
+  scrollPreviewTo(index: number): void
+  setSidebarVisible(visible: boolean): void
   setDirty(dirty: boolean): void
   reportSave(ok: boolean): void
   ready(): void
   pathForFile(file: File): string
   onFileOpened(callback: (path: string) => void): () => void
   onPreviewNavigate(callback: (path: string) => void): () => void
+  onOutline(callback: (items: OutlineItem[]) => void): () => void
   onCommand(callback: (message: CommandMessage) => void): () => void
 }
 
@@ -91,6 +100,9 @@ export const CH = {
   previewReload: 'libra:preview:reload',
   previewBounds: 'libra:preview:bounds',
   previewNavigate: 'libra:preview:navigate',
+  previewOutline: 'libra:preview:outline',
+  previewScrollTo: 'libra:preview:scroll-to',
+  sidebarVisible: 'libra:sidebar:visible',
   command: 'libra:command',
   ready: 'libra:app:ready'
 } as const

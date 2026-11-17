@@ -1,10 +1,24 @@
 import { BrowserWindow, shell, WebContentsView } from 'electron'
 import { dirname } from 'node:path'
-import { CH, type PreviewRect } from '../shared/protocol'
+import { CH, type OutlineItem, type PreviewRect } from '../shared/protocol'
 import { PREVIEW_PARTITION, allowRoot, fromPreviewUrl, toPreviewUrl } from './protocol'
 
 const hosts = new Map<number, PreviewHost>()
 const HTML_LIKE = /\.(html?|xhtml)$/i
+
+const OUTLINE_SCRIPT = `(() => {
+  const nodes = Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6'))
+  const items = []
+  let index = 0
+  for (const node of nodes) {
+    const text = (node.textContent || '').replace(/\\s+/g, ' ').trim()
+    if (!text) continue
+    node.setAttribute('data-libra-outline', String(index))
+    items.push({ index, level: Number(node.tagName.slice(1)), text: text.slice(0, 120) })
+    index += 1
+  }
+  return JSON.stringify(items)
+})()`
 
 export class PreviewHost {
   private readonly view: WebContentsView
@@ -48,6 +62,14 @@ export class PreviewHost {
         void shell.openExternal(url)
       }
     })
+
+    contents.on('did-finish-load', () => {
+      void this.publishOutline()
+    })
+
+    contents.on('did-fail-load', () => {
+      win.webContents.send(CH.previewOutline, [])
+    })
   }
 
   async load(filePath: string): Promise<void> {
@@ -72,6 +94,33 @@ export class PreviewHost {
 
   reload(): void {
     this.view.webContents.reload()
+  }
+
+  scrollTo(index: number): void {
+    const safe = Math.max(0, Math.min(99999, Math.floor(index)))
+    void this.view.webContents
+      .executeJavaScript(
+        `(() => {
+          const node = document.querySelector('[data-libra-outline="${safe}"]')
+          if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        })()`
+      )
+      .catch(() => undefined)
+  }
+
+  private async publishOutline(): Promise<void> {
+    this.win.webContents.send(CH.previewOutline, await this.readOutline())
+  }
+
+  private async readOutline(): Promise<OutlineItem[]> {
+    try {
+      const raw = await this.view.webContents.executeJavaScript(OUTLINE_SCRIPT)
+      if (typeof raw !== 'string') return []
+      const parsed: unknown = JSON.parse(raw)
+      return Array.isArray(parsed) ? (parsed as OutlineItem[]) : []
+    } catch {
+      return []
+    }
   }
 
   destroy(): void {

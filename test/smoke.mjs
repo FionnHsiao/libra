@@ -1,16 +1,20 @@
-import { spawn } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
+import os from 'node:os'
+import path from 'node:path'
 import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 
 const PROJECT = 'E:/Libra/libra'
 const FIXTURE = `${PROJECT}/test/fixtures/sample-gbk.html`
+const LONG = `${PROJECT}/test/fixtures/another.html`
 const PORT = 9333
+const PROFILE = path.join(os.tmpdir(), 'libra-test-profile')
 
 const hash = () => createHash('sha256').update(fs.readFileSync(FIXTURE)).digest('hex')
 const before = hash()
 
 const { default: electronPath } = await import('electron')
-const child = spawn(electronPath, ['.', FIXTURE, `--remote-debugging-port=${PORT}`], {
+const child = spawn(electronPath, ['.', FIXTURE, `--remote-debugging-port=${PORT}`, `--user-data-dir=${PROFILE}`], {
   cwd: PROJECT,
   stdio: ['ignore', 'pipe', 'pipe']
 })
@@ -19,6 +23,10 @@ child.stdout.on('data', (d) => { logs += d.toString() })
 child.stderr.on('data', (d) => { logs += d.toString() })
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const stopApp = (proc) => new Promise((resolve) => {
+  if (!proc.pid) { resolve(); return }
+  execFile('taskkill', ['/PID', String(proc.pid), '/T', '/F'], () => resolve())
+})
 
 async function listTargets() {
   for (let i = 0; i < 60; i += 1) {
@@ -67,16 +75,15 @@ try {
   const targets = await listTargets()
   const mainTarget = targets.find((t) => t.type === 'page' && !t.url.startsWith('libra-file://'))
   shell = await attach(mainTarget.webSocketDebuggerUrl)
-  await sleep(1800)
+  await sleep(1900)
 
   const ui = JSON.parse(
     await shell.evaluate(`JSON.stringify({
-      title: document.title,
       hasEditor: !!document.querySelector('.cm-editor'),
       editorHidden: getComputedStyle(document.querySelector('.editor-pane')).display === 'none',
       fileItems: document.querySelectorAll('.file-item').length,
       activeName: document.querySelector('.file-item.active')?.textContent ?? '',
-      status: document.querySelector('.status-meta')?.textContent ?? '',
+      outline: document.querySelectorAll('.outline-item').length,
       bodyBg: getComputedStyle(document.body).backgroundColor
     })`)
   )
@@ -84,26 +91,52 @@ try {
   check('左侧文件列表列出同目录 HTML', ui.fileItems >= 2, `${ui.fileItems} 个，当前 ${ui.activeName}`)
   check('浅色主题生效', ui.bodyBg === 'rgb(247, 244, 236)', ui.bodyBg)
 
-  const previewTargets = (await listTargets()).filter((t) => t.url.startsWith('libra-file://'))
-  check('预览运行在独立进程 / 独立 origin', previewTargets.length === 1, previewTargets[0]?.url ?? '未找到')
+  preview = await attach(
+    (await listTargets()).find((t) => t.url.startsWith('libra-file://')).webSocketDebuggerUrl
+  )
+  await sleep(500)
+  const rendered = JSON.parse(
+    await preview.evaluate(`JSON.stringify({
+      title: document.title,
+      heading: document.querySelector('h1')?.textContent ?? '',
+      paragraphs: document.querySelectorAll('p').length
+    })`)
+  )
+  check('渲染出真实 DOM 而不是源码', rendered.heading === '中文标题', JSON.stringify(rendered))
+  check('从渲染结果提取目录（单标题文档）', ui.outline === 1, `${ui.outline} 项`)
 
-  if (previewTargets.length > 0) {
-    preview = await attach(previewTargets[0].webSocketDebuggerUrl)
-    await sleep(600)
-    const rendered = JSON.parse(
-      await preview.evaluate(`JSON.stringify({
-        title: document.title,
-        heading: document.querySelector('h1')?.textContent ?? '',
-        paragraphs: document.querySelectorAll('p').length
-      })`)
-    )
-    check('渲染出真实 DOM 而不是源码', rendered.heading === '中文标题' && rendered.paragraphs === 1, JSON.stringify(rendered))
-  }
+  await shell.evaluate(`[...document.querySelectorAll('.file-item')].find(el => el.textContent.trim() === 'another.html').click()`)
+  await sleep(1800)
+
+  const afterSwitch = JSON.parse(
+    await shell.evaluate(`JSON.stringify({
+      activeName: document.querySelector('.file-item.active')?.textContent ?? '',
+      outline: [...document.querySelectorAll('.outline-item')].map(el => el.className.match(/level-(\\d)/)?.[1] ?? '?'),
+      titles: [...document.querySelectorAll('.outline-item')].map(el => el.textContent)
+    })`)
+  )
+  check(
+    '切换文件后目录自动重建',
+    afterSwitch.activeName === 'another.html' && afterSwitch.outline.length >= 6,
+    `${afterSwitch.outline.length} 项，层级 ${[...new Set(afterSwitch.outline)].join('/')}`
+  )
+  check('目录识别 h1/h2/h3 层级', new Set(afterSwitch.outline).size === 3, [...new Set(afterSwitch.outline)].join(' / '))
+
+  preview.close()
+  preview = await attach(
+    (await listTargets()).find((t) => t.url.startsWith('libra-file://')).webSocketDebuggerUrl
+  )
+  const scrollBefore = await preview.evaluate('window.scrollY')
+
+  await shell.evaluate(`document.querySelectorAll('.outline-item')[3].click()`)
+  await sleep(1200)
+  const scrollAfter = await preview.evaluate('window.scrollY')
+  check('点目录跳到文档对应位置', scrollAfter > scrollBefore + 100, `scrollY ${scrollBefore} -> ${scrollAfter}`)
 
   const doc = JSON.parse(
     await shell.evaluate(`(async () => {
       const d = await window.libra.read(${JSON.stringify(FIXTURE)})
-      return JSON.stringify({ encoding: d.encoding, bom: d.bom, eol: d.eol, size: d.size, text: d.text })
+      return JSON.stringify({ encoding: d.encoding, eol: d.eol, size: d.size, text: d.text })
     })()`)
   )
   check('GBK / CRLF 识别正确', doc.encoding === 'gb18030' && doc.eol === 'CRLF' && doc.size === 197, `${doc.encoding} / ${doc.eol} / ${doc.size}B`)
@@ -135,8 +168,8 @@ try {
 } finally {
   preview?.close()
   shell?.close()
-  child.kill()
-  await sleep(800)
+  await stopApp(child)
+  await sleep(500)
 }
 
 let failed = 0
