@@ -20,31 +20,26 @@ child.stderr.on('data', (d) => { logs += d.toString() })
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-async function findTarget() {
+async function listTargets() {
   for (let i = 0; i < 60; i += 1) {
     try {
       const res = await fetch(`http://127.0.0.1:${PORT}/json/list`)
       const list = await res.json()
-      const page = list.find((t) => t.type === 'page')
-      if (page?.webSocketDebuggerUrl) return page
+      if (list.some((t) => t.type === 'page')) return list
     } catch {
       /* not up yet */
     }
-    await sleep(500)
+    await sleep(400)
   }
   throw new Error('devtools target never appeared')
 }
 
-let ws
-const results = []
-try {
-  const target = await findTarget()
-  ws = new WebSocket(target.webSocketDebuggerUrl)
+async function attach(webSocketDebuggerUrl) {
+  const ws = new WebSocket(webSocketDebuggerUrl)
   await new Promise((resolve, reject) => {
     ws.onopen = resolve
     ws.onerror = reject
   })
-
   let seq = 0
   const evaluate = (expression) =>
     new Promise((resolve, reject) => {
@@ -60,38 +55,69 @@ try {
       ws.addEventListener('message', onMessage)
       ws.send(JSON.stringify({ id, method: 'Runtime.evaluate', params: { expression, awaitPromise: true, returnByValue: true } }))
     })
+  return { evaluate, close: () => ws.close() }
+}
 
-  await sleep(1500)
+const results = []
+const check = (name, pass, detail) => results.push([name, pass, detail])
+
+let shell
+let preview
+try {
+  const targets = await listTargets()
+  const mainTarget = targets.find((t) => t.type === 'page' && !t.url.startsWith('libra-file://'))
+  shell = await attach(mainTarget.webSocketDebuggerUrl)
+  await sleep(1800)
 
   const ui = JSON.parse(
-    await evaluate(`JSON.stringify({
+    await shell.evaluate(`JSON.stringify({
       title: document.title,
       hasEditor: !!document.querySelector('.cm-editor'),
-      hasBridge: typeof window.libra === 'object',
-      lines: document.querySelectorAll('.cm-line').length,
-      status: document.querySelector('.status-meta')?.textContent ?? ''
+      editorHidden: getComputedStyle(document.querySelector('.editor-pane')).display === 'none',
+      fileItems: document.querySelectorAll('.file-item').length,
+      activeName: document.querySelector('.file-item.active')?.textContent ?? '',
+      status: document.querySelector('.status-meta')?.textContent ?? '',
+      bodyBg: getComputedStyle(document.body).backgroundColor
     })`)
   )
-  results.push(['界面渲染 + 文件关联打开', ui.hasEditor && ui.hasBridge && ui.lines > 5, JSON.stringify(ui)])
+  check('默认进入阅读模式（源码隐藏）', ui.hasEditor && ui.editorHidden, `display=${ui.editorHidden ? 'none' : 'block'}`)
+  check('左侧文件列表列出同目录 HTML', ui.fileItems >= 2, `${ui.fileItems} 个，当前 ${ui.activeName}`)
+  check('浅色主题生效', ui.bodyBg === 'rgb(247, 244, 236)', ui.bodyBg)
+
+  const previewTargets = (await listTargets()).filter((t) => t.url.startsWith('libra-file://'))
+  check('预览运行在独立进程 / 独立 origin', previewTargets.length === 1, previewTargets[0]?.url ?? '未找到')
+
+  if (previewTargets.length > 0) {
+    preview = await attach(previewTargets[0].webSocketDebuggerUrl)
+    await sleep(600)
+    const rendered = JSON.parse(
+      await preview.evaluate(`JSON.stringify({
+        title: document.title,
+        heading: document.querySelector('h1')?.textContent ?? '',
+        paragraphs: document.querySelectorAll('p').length
+      })`)
+    )
+    check('渲染出真实 DOM 而不是源码', rendered.heading === '中文标题' && rendered.paragraphs === 1, JSON.stringify(rendered))
+  }
 
   const doc = JSON.parse(
-    await evaluate(`(async () => {
+    await shell.evaluate(`(async () => {
       const d = await window.libra.read(${JSON.stringify(FIXTURE)})
       return JSON.stringify({ encoding: d.encoding, bom: d.bom, eol: d.eol, size: d.size, text: d.text })
     })()`)
   )
-  results.push(['GBK / CRLF 识别正确', doc.encoding === 'gb18030' && doc.eol === 'CRLF' && doc.size === 197, `${doc.encoding} / ${doc.eol} / ${doc.size}B`])
+  check('GBK / CRLF 识别正确', doc.encoding === 'gb18030' && doc.eol === 'CRLF' && doc.size === 197, `${doc.encoding} / ${doc.eol} / ${doc.size}B`)
 
   const passthrough = JSON.parse(
-    await evaluate(`(async () => {
+    await shell.evaluate(`(async () => {
       const d = await window.libra.read(${JSON.stringify(FIXTURE)})
       return JSON.stringify(await window.libra.save({ path: d.path, text: d.text, encoding: d.encoding, bom: d.bom, eol: d.eol }))
     })()`)
   )
-  results.push(['原样保存不改一个字节', passthrough.ok && hash() === before, `bytes=${passthrough.bytes}`])
+  check('原样保存不改一个字节', passthrough.ok && hash() === before, `bytes=${passthrough.bytes}`)
 
   const edited = JSON.parse(
-    await evaluate(`(async () => {
+    await shell.evaluate(`(async () => {
       const d = await window.libra.read(${JSON.stringify(FIXTURE)})
       const text = d.text.replace('中文标题', '中文标题（已编辑）')
       await window.libra.save({ path: d.path, text, encoding: d.encoding, bom: d.bom, eol: d.eol })
@@ -99,15 +125,16 @@ try {
       return JSON.stringify({ changed: again.text.includes('已编辑'), encoding: again.encoding, eol: again.eol })
     })()`)
   )
-  results.push(['编辑中文后编码与换行保持', edited.changed && edited.encoding === 'gb18030' && edited.eol === 'CRLF', JSON.stringify(edited)])
+  check('编辑中文后编码与换行保持', edited.changed && edited.encoding === 'gb18030' && edited.eol === 'CRLF', JSON.stringify(edited))
 
-  await evaluate(`(async () => {
+  await shell.evaluate(`(async () => {
     const d = await window.libra.read(${JSON.stringify(FIXTURE)})
     return window.libra.save({ path: d.path, text: ${JSON.stringify(doc.text)}, encoding: ${JSON.stringify(doc.encoding)}, bom: ${doc.bom}, eol: ${JSON.stringify(doc.eol)} })
   })()`)
-  results.push(['恢复原文后字节完全一致', hash() === before, `sha=${hash().slice(0, 12)}`])
+  check('恢复原文后字节完全一致', hash() === before, `sha=${hash().slice(0, 12)}`)
 } finally {
-  if (ws) ws.close()
+  preview?.close()
+  shell?.close()
   child.kill()
   await sleep(800)
 }
@@ -118,6 +145,6 @@ for (const [name, pass, detail] of results) {
   console.log(`${pass ? 'PASS' : 'FAIL'}  ${name}  —  ${detail}`)
 }
 const errLines = logs.split(/\r?\n/).filter((l) => /\berror\b/i.test(l) && !l.includes('DevTools'))
-if (errLines.length) console.log('LOG-ERRORS:', errLines.slice(0, 5).join(' | '))
+if (errLines.length) console.log('LOG-ERRORS:', errLines.slice(0, 6).join(' | '))
 console.log(failed === 0 ? '\nALL PASSED' : `\n${failed} FAILED`)
 process.exit(failed === 0 ? 0 : 1)

@@ -50,6 +50,8 @@ export function installMenu(): void {
     {
       label: '视图',
       submenu: [
+        { label: '切换阅读 / 编辑', accelerator: 'CmdOrCtrl+E', click: () => sendCommand('toggle-mode') },
+        { type: 'separator' },
         { role: 'resetZoom', label: '实际大小' },
         { role: 'zoomIn', label: '放大' },
         { role: 'zoomOut', label: '缩小' },

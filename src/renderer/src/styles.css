@@ -1,10 +1,14 @@
 :root {
-  --bg: #12141a;
-  --bg-raised: #171a21;
-  --line: rgba(255, 255, 255, 0.07);
-  --text: #d7dae0;
-  --muted: #6b7280;
-  --accent: #e0b070;
+  --bg: #f7f4ec;
+  --panel: #f1ece0;
+  --panel-hover: #e8e2d2;
+  --line: #e1d9c8;
+  --text: #2f2c26;
+  --muted: #8c8477;
+  --accent: #a9743f;
+  --accent-strong: #8d5d2d;
+  --accent-soft: rgba(169, 116, 63, 0.13);
+  --editor-bg: #fbfaf6;
 }
 
 * {
@@ -27,11 +31,34 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d7cfbe;
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 7px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #c8bfab;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .app {
   display: grid;
-  grid-template-rows: 46px minmax(0, 1fr) 30px;
+  grid-template-rows: 46px minmax(0, 1fr) 28px;
   height: 100%;
 }
+
+/* ---- 顶栏 ---- */
 
 .topbar {
   display: flex;
@@ -46,6 +73,7 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .brand-mark {
@@ -56,15 +84,15 @@ body {
   place-items: center;
   font-size: 12px;
   font-weight: 700;
-  color: #241a0b;
-  background: linear-gradient(140deg, #f0c88a, #d09a4e);
+  color: #fffaf0;
+  background: linear-gradient(140deg, #c08a4d, #9a6631);
 }
 
 .brand-name {
   font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0.06em;
-  color: #aab0ba;
+  color: #6f675a;
 }
 
 .doc-title {
@@ -90,7 +118,9 @@ body {
 
 .actions {
   display: flex;
+  align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 button {
@@ -99,38 +129,158 @@ button {
   padding: 5px 13px;
   border-radius: 7px;
   border: 1px solid var(--line);
-  background: transparent;
+  background: #fffdf8;
   color: var(--text);
   cursor: pointer;
   transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
 }
 
 button:hover:not(:disabled) {
-  border-color: rgba(224, 176, 112, 0.45);
-  color: #fff;
+  border-color: rgba(169, 116, 63, 0.45);
+  color: var(--accent-strong);
 }
 
 button:disabled {
-  opacity: 0.35;
+  opacity: 0.4;
   cursor: default;
 }
 
 button.primary {
   background: var(--accent);
   border-color: transparent;
-  color: #241a0b;
+  color: #fffaf2;
   font-weight: 600;
 }
 
 button.primary:hover:not(:disabled) {
-  background: #eec089;
-  color: #241a0b;
+  background: #b8804a;
+  color: #fffaf2;
 }
 
-.canvas {
-  position: relative;
-  min-height: 0;
+.segmented {
+  display: flex;
+  border: 1px solid var(--line);
+  border-radius: 8px;
   overflow: hidden;
+  background: #fffdf8;
+}
+
+.segmented button {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 5px 13px;
+  color: var(--muted);
+}
+
+.segmented button.on {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+/* ---- 主体 ---- */
+
+.body {
+  display: flex;
+  min-height: 0;
+}
+
+.sidebar {
+  flex: 0 0 236px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+
+.sidebar-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 11px 14px 7px;
+}
+
+.sidebar-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b6255;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-count {
+  font-size: 11px;
+  color: var(--muted);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.file-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 14px;
+}
+
+.file-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 9px;
+  margin-bottom: 1px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: #4c463a;
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-item:hover:not(.active) {
+  background: var(--panel-hover);
+  color: var(--text);
+}
+
+.file-item.active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.file-empty {
+  margin: 10px 8px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.content.edit {
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+}
+
+.editor-pane {
+  min-width: 0;
+  min-height: 0;
+  background: var(--editor-bg);
+  border-right: 1px solid var(--line);
+}
+
+.editor-pane.is-hidden {
+  display: none;
 }
 
 .editor-host,
@@ -138,8 +288,22 @@ button.primary:hover:not(:disabled) {
   height: 100%;
 }
 
+.preview-pane {
+  min-width: 0;
+  min-height: 0;
+  background: #ffffff;
+}
+
+.preview-host {
+  height: 100%;
+  background: #ffffff;
+}
+
+/* ---- 空状态 ---- */
+
 .empty {
   height: 100%;
+  grid-column: 1 / -1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -147,6 +311,7 @@ button.primary:hover:not(:disabled) {
   gap: 6px;
   text-align: center;
   padding: 40px;
+  background: var(--bg);
 }
 
 .empty-mark {
@@ -157,9 +322,9 @@ button.primary:hover:not(:disabled) {
   place-items: center;
   font-size: 23px;
   font-weight: 700;
-  color: #241a0b;
-  background: linear-gradient(140deg, #f0c88a, #d09a4e);
-  margin-bottom: 6px;
+  color: #fffaf0;
+  background: linear-gradient(140deg, #c08a4d, #9a6631);
+  margin-bottom: 8px;
 }
 
 .empty h1 {
@@ -171,11 +336,13 @@ button.primary:hover:not(:disabled) {
 
 .empty p {
   margin: 0 0 14px;
-  max-width: 360px;
+  max-width: 380px;
   font-size: 12.5px;
   line-height: 1.8;
   color: var(--muted);
 }
+
+/* ---- 状态栏 ---- */
 
 .statusbar {
   display: flex;
@@ -184,6 +351,7 @@ button.primary:hover:not(:disabled) {
   gap: 16px;
   padding: 0 14px;
   border-top: 1px solid var(--line);
+  background: var(--bg);
   font-size: 11.5px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
@@ -200,17 +368,4 @@ button.primary:hover:not(:disabled) {
   display: flex;
   gap: 14px;
   flex-shrink: 0;
-}
-
-.notice {
-  position: fixed;
-  bottom: 44px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 8px 15px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
-  background: #1f232b;
-  font-size: 12px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
 }

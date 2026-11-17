@@ -1,15 +1,23 @@
 import { BrowserWindow, dialog, ipcMain } from 'electron'
-import { extname, isAbsolute } from 'node:path'
+import { promises as fs } from 'node:fs'
+import { extname, isAbsolute, join, resolve } from 'node:path'
 import {
   ALLOWED_EXTENSIONS,
   CH,
+  HTML_EXTENSIONS,
   MAX_DOCUMENT_BYTES,
+  type FileEntry,
+  type FolderListing,
+  type PreviewRect,
   type SaveAsPayload,
   type SavePayload
 } from '../shared/protocol'
 import { readDocument, writeTextAtomic } from './files'
+import { getPreviewHost } from './preview'
 
 const allowedExtensions = new Set<string>(ALLOWED_EXTENSIONS)
+const htmlExtensions = new Set<string>(HTML_EXTENSIONS)
+const MAX_LISTED_FILES = 500
 
 let dirty = false
 let pendingSave: ((ok: boolean) => void) | null = null
@@ -29,7 +37,17 @@ export function assertDocumentPath(value: unknown): string {
   if (!allowedExtensions.has(extension)) {
     throw new Error(`不支持的文件类型：${extension || '(无扩展名)'}`)
   }
-  return value
+  return resolve(value)
+}
+
+function assertDirectoryPath(value: unknown): string {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 4096) {
+    throw new Error('非法的目录路径')
+  }
+  if (!isAbsolute(value)) {
+    throw new Error('只接受绝对路径')
+  }
+  return resolve(value)
 }
 
 function assertText(value: unknown): string {
@@ -75,6 +93,19 @@ function assertSaveAsPayload(value: unknown): SaveAsPayload {
     bom: payload.bom === true,
     eol: payload.eol === 'CRLF' ? 'CRLF' : 'LF',
     suggestedPath: typeof suggested === 'string' && isAbsolute(suggested) ? suggested : null
+  }
+}
+
+function parseRect(value: unknown): PreviewRect | null {
+  if (typeof value !== 'object' || value === null) return null
+  const rect = value as Partial<PreviewRect>
+  const numbers = [rect.x, rect.y, rect.width, rect.height]
+  if (!numbers.every((item) => typeof item === 'number' && Number.isFinite(item))) return null
+  return {
+    x: rect.x as number,
+    y: rect.y as number,
+    width: Math.max(0, rect.width as number),
+    height: Math.max(0, rect.height as number)
   }
 }
 
@@ -135,6 +166,65 @@ export function registerIpc(): void {
     const target = assertDocumentPath(result.filePath)
     await writeTextAtomic(target, payload.text, payload.encoding, payload.bom, payload.eol)
     return { path: target }
+  })
+
+  ipcMain.handle(CH.listFolder, async (_event, rawDir: unknown): Promise<FolderListing> => {
+    const dir = assertDirectoryPath(rawDir)
+    const dirents = await fs.readdir(dir, { withFileTypes: true })
+
+    const candidates = dirents
+      .filter((entry) => entry.isFile() && htmlExtensions.has(extname(entry.name).toLowerCase()))
+      .slice(0, MAX_LISTED_FILES)
+
+    const files: FileEntry[] = await Promise.all(
+      candidates.map(async (entry) => {
+        const fullPath = join(dir, entry.name)
+        let size = 0
+        try {
+          size = (await fs.stat(fullPath)).size
+        } catch {
+          size = 0
+        }
+        return { name: entry.name, path: fullPath, size }
+      })
+    )
+
+    files.sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'))
+    return { dir, files }
+  })
+
+  ipcMain.handle(CH.confirmDiscard, async (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      type: 'question' as const,
+      buttons: ['放弃修改', '取消'],
+      defaultId: 1,
+      cancelId: 1,
+      message: '有未保存的修改',
+      detail: '继续操作会丢弃这些修改。'
+    }
+    const result = win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options)
+    return result.response === 0
+  })
+
+  ipcMain.handle(CH.previewLoad, async (event, rawPath: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    const host = getPreviewHost(win.webContents.id)
+    if (!host) return
+    await host.load(assertDocumentPath(rawPath))
+  })
+
+  ipcMain.on(CH.previewReload, (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    getPreviewHost(win.webContents.id)?.reload()
+  })
+
+  ipcMain.on(CH.previewBounds, (event, rawRect: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    getPreviewHost(win.webContents.id)?.setBounds(parseRect(rawRect))
   })
 
   ipcMain.on(CH.setDirty, (_event, value: unknown) => {

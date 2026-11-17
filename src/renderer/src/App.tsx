@@ -1,16 +1,25 @@
 import type { EditorView } from '@codemirror/view'
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
-import type { DocumentData } from '../../shared/protocol'
+import type { DocumentData, FolderListing, PreviewRect } from '../../shared/protocol'
 import { Editor } from './Editor'
+import { PreviewPane } from './PreviewPane'
+import { Sidebar } from './Sidebar'
+
+type Mode = 'read' | 'edit'
 
 interface Cursor {
   line: number
   column: number
 }
 
-function fileNameOf(path: string): string {
-  const segments = path.split(/[\\/]/)
+function baseName(path: string): string {
+  const segments = path.split(/[\\/]/).filter(Boolean)
   return segments[segments.length - 1] ?? path
+}
+
+function dirName(path: string): string {
+  const index = Math.max(path.lastIndexOf('\\'), path.lastIndexOf('/'))
+  return index > 0 ? path.slice(0, index) : path
 }
 
 function describeError(error: unknown): string {
@@ -31,8 +40,8 @@ function EmptyState({ onOpen }: { onOpen: () => void }): ReactElement {
     <div className="empty">
       <div className="empty-mark">L</div>
       <h1>把一个 HTML 文件交给 Libra</h1>
-      <p>拖进来，或按 Ctrl+O。Libra 只改你动过的地方，其余的字节原样保留。</p>
-      <button className="primary" onClick={onOpen}>
+      <p>拖进来，或按 Ctrl+O。默认以渲染后的样子打开，想看源码按 Ctrl+E。</p>
+      <button className="primary" type="button" onClick={onOpen}>
         打开文档
       </button>
     </div>
@@ -43,39 +52,63 @@ export function App(): ReactElement {
   const [doc, setDoc] = useState<DocumentData | null>(null)
   const [docKey, setDocKey] = useState(0)
   const [dirty, setDirty] = useState(false)
+  const [mode, setMode] = useState<Mode>('read')
   const [cursor, setCursor] = useState<Cursor>({ line: 1, column: 1 })
-  const [notice, setNotice] = useState<string | null>(null)
+  const [folder, setFolder] = useState<FolderListing | null>(null)
+  const [status, setStatus] = useState<string | null>(null)
 
   const viewRef = useRef<EditorView | null>(null)
   const docRef = useRef<DocumentData | null>(null)
+  const dirtyRef = useRef(false)
 
-  const applyDocument = useCallback((next: DocumentData) => {
-    docRef.current = next
-    setDoc(next)
-    setDirty(false)
-    setCursor({ line: 1, column: 1 })
-    setDocKey((key) => key + 1)
+  const markDirty = useCallback((value: boolean) => {
+    dirtyRef.current = value
+    setDirty(value)
+  }, [])
+
+  const applyDocument = useCallback(
+    (next: DocumentData) => {
+      docRef.current = next
+      setDoc(next)
+      markDirty(false)
+      setCursor({ line: 1, column: 1 })
+      setDocKey((key) => key + 1)
+      void window.libra.loadPreview(next.path).catch(() => undefined)
+      window.libra
+        .listFolder(dirName(next.path))
+        .then((listing) => setFolder(listing))
+        .catch(() => setFolder(null))
+    },
+    [markDirty]
+  )
+
+  const confirmIfDirty = useCallback(async (): Promise<boolean> => {
+    if (!dirtyRef.current) return true
+    return window.libra.confirmDiscard()
   }, [])
 
   const openPath = useCallback(
     async (path: string) => {
+      if (docRef.current?.path === path) return
+      if (!(await confirmIfDirty())) return
       try {
         applyDocument(await window.libra.read(path))
       } catch (error) {
-        setNotice(describeError(error))
+        setStatus(describeError(error))
       }
     },
-    [applyDocument]
+    [applyDocument, confirmIfDirty]
   )
 
   const openViaDialog = useCallback(async () => {
+    if (!(await confirmIfDirty())) return
     try {
       const data = await window.libra.openDialog()
       if (data) applyDocument(data)
     } catch (error) {
-      setNotice(describeError(error))
+      setStatus(describeError(error))
     }
-  }, [applyDocument])
+  }, [applyDocument, confirmIfDirty])
 
   const saveDocument = useCallback(async (): Promise<boolean> => {
     const view = viewRef.current
@@ -92,14 +125,15 @@ export function App(): ReactElement {
         eol: current.eol
       })
       docRef.current = { ...current, text, size: result.bytes }
-      setDirty(false)
-      setNotice('已保存')
+      markDirty(false)
+      setStatus('已保存')
+      window.libra.reloadPreview()
       return true
     } catch (error) {
-      setNotice(describeError(error))
+      setStatus(describeError(error))
       return false
     }
-  }, [])
+  }, [markDirty])
 
   const saveDocumentAs = useCallback(async (): Promise<boolean> => {
     const view = viewRef.current
@@ -116,20 +150,24 @@ export function App(): ReactElement {
       })
       if (!result) return true
       applyDocument(await window.libra.read(result.path))
-      setNotice('已另存为 ' + fileNameOf(result.path))
+      setStatus(`已另存为 ${baseName(result.path)}`)
       return true
     } catch (error) {
-      setNotice(describeError(error))
+      setStatus(describeError(error))
       return false
     }
   }, [applyDocument])
 
   const handleChange = useCallback(() => {
-    setDirty(true)
-  }, [])
+    markDirty(true)
+  }, [markDirty])
 
   const handleCursor = useCallback((line: number, column: number) => {
     setCursor({ line, column })
+  }, [])
+
+  const handleBounds = useCallback((rect: PreviewRect | null) => {
+    window.libra.setPreviewBounds(rect)
   }, [])
 
   useEffect(() => {
@@ -137,9 +175,13 @@ export function App(): ReactElement {
   }, [dirty])
 
   useEffect(() => {
-    const name = doc ? fileNameOf(doc.path) : '未打开文件'
+    const name = doc ? baseName(doc.path) : '未打开文件'
     document.title = doc ? `Libra — ${name}${dirty ? ' •' : ''}` : 'Libra'
   }, [doc, dirty])
+
+  useEffect(() => {
+    if (!doc) window.libra.setPreviewBounds(null)
+  }, [doc])
 
   useEffect(() => {
     const offCommand = window.libra.onCommand((message) => {
@@ -151,9 +193,16 @@ export function App(): ReactElement {
         void saveDocumentAs()
         return
       }
+      if (message.id === 'toggle-mode') {
+        setMode((current) => (current === 'read' ? 'edit' : 'read'))
+        return
+      }
       void saveDocument().then((ok) => window.libra.reportSave(ok))
     })
     const offOpened = window.libra.onFileOpened((path) => {
+      void openPath(path)
+    })
+    const offNavigate = window.libra.onPreviewNavigate((path) => {
       void openPath(path)
     })
     window.libra.ready()
@@ -161,6 +210,7 @@ export function App(): ReactElement {
     return () => {
       offCommand()
       offOpened()
+      offNavigate()
     }
   }, [openPath, openViaDialog, saveDocument, saveDocumentAs])
 
@@ -174,7 +224,7 @@ export function App(): ReactElement {
       if (!file) return
       const path = window.libra.pathForFile(file)
       if (!path) {
-        setNotice('无法读取这个文件的路径')
+        setStatus('无法读取这个文件的路径')
         return
       }
       void openPath(path)
@@ -189,10 +239,10 @@ export function App(): ReactElement {
   }, [openPath])
 
   useEffect(() => {
-    if (!notice) return undefined
-    const timer = window.setTimeout(() => setNotice(null), 2400)
+    if (!status) return undefined
+    const timer = window.setTimeout(() => setStatus(null), 2600)
     return () => window.clearTimeout(timer)
-  }, [notice])
+  }, [status])
 
   return (
     <div className="app">
@@ -201,47 +251,87 @@ export function App(): ReactElement {
           <span className="brand-mark">L</span>
           <span className="brand-name">Libra</span>
         </div>
+
         <div className="doc-title">
-          {doc ? fileNameOf(doc.path) : '未打开文件'}
+          {doc ? baseName(doc.path) : '未打开文件'}
           {dirty ? <span className="dot" title="有未保存的修改" /> : null}
         </div>
+
         <div className="actions">
-          <button onClick={() => void openViaDialog()}>打开</button>
-          <button className="primary" disabled={!doc} onClick={() => void saveDocument()}>
+          {doc ? (
+            <div className="segmented" role="group" aria-label="视图模式">
+              <button
+                type="button"
+                className={mode === 'read' ? 'on' : ''}
+                onClick={() => setMode('read')}
+              >
+                阅读
+              </button>
+              <button
+                type="button"
+                className={mode === 'edit' ? 'on' : ''}
+                onClick={() => setMode('edit')}
+              >
+                编辑
+              </button>
+            </div>
+          ) : null}
+          <button type="button" onClick={() => void openViaDialog()}>
+            打开
+          </button>
+          <button className="primary" type="button" disabled={!doc || !dirty} onClick={() => void saveDocument()}>
             保存
           </button>
         </div>
       </header>
 
-      <main className="canvas">
-        {doc ? (
-          <Editor
-            key={docKey}
-            initialText={doc.text}
-            viewRef={viewRef}
-            onChange={handleChange}
-            onCursor={handleCursor}
+      <div className="body">
+        {doc && folder ? (
+          <Sidebar
+            dir={folder.dir}
+            files={folder.files}
+            activePath={doc.path}
+            onSelect={(path) => void openPath(path)}
           />
-        ) : (
-          <EmptyState onOpen={() => void openViaDialog()} />
-        )}
-      </main>
+        ) : null}
+
+        <main className={doc && mode === 'edit' ? 'content edit' : 'content'}>
+          {doc ? (
+            <>
+              <div className={mode === 'edit' ? 'editor-pane' : 'editor-pane is-hidden'}>
+                <Editor
+                  key={docKey}
+                  initialText={doc.text}
+                  viewRef={viewRef}
+                  onChange={handleChange}
+                  onCursor={handleCursor}
+                />
+              </div>
+              <div className="preview-pane">
+                <PreviewPane onBounds={handleBounds} />
+              </div>
+            </>
+          ) : (
+            <EmptyState onOpen={() => void openViaDialog()} />
+          )}
+        </main>
+      </div>
 
       <footer className="statusbar">
-        <span className="status-path" title={doc?.path ?? ''}>
-          {doc?.path ?? '—'}
+        <span className="status-path" title={status ?? doc?.path ?? ''}>
+          {status ?? doc?.path ?? '—'}
         </span>
         <span className="status-meta">
           {doc ? <span>{doc.encoding.toUpperCase()}</span> : null}
           {doc ? <span>{doc.eol}</span> : null}
-          <span>
-            行 {cursor.line}，列 {cursor.column}
-          </span>
+          {doc && mode === 'edit' ? (
+            <span>
+              行 {cursor.line}，列 {cursor.column}
+            </span>
+          ) : null}
           {doc ? <span>{formatSize(doc.size)}</span> : null}
         </span>
       </footer>
-
-      {notice ? <div className="notice">{notice}</div> : null}
     </div>
   )
 }

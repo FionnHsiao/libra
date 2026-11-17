@@ -1,11 +1,21 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import { CH, type CommandMessage, type LibraApi } from '../shared/protocol'
+import {
+  CH,
+  type CommandMessage,
+  type LibraApi,
+  type PreviewRect
+} from '../shared/protocol'
 
 const api: LibraApi = {
   openDialog: () => ipcRenderer.invoke(CH.openDialog),
   read: (path) => ipcRenderer.invoke(CH.read, path),
   save: (payload) => ipcRenderer.invoke(CH.save, payload),
   saveAs: (payload) => ipcRenderer.invoke(CH.saveAs, payload),
+  listFolder: (dir) => ipcRenderer.invoke(CH.listFolder, dir),
+  confirmDiscard: () => ipcRenderer.invoke(CH.confirmDiscard),
+  loadPreview: (path) => ipcRenderer.invoke(CH.previewLoad, path),
+  reloadPreview: () => ipcRenderer.send(CH.previewReload),
+  setPreviewBounds: (rect: PreviewRect | null) => ipcRenderer.send(CH.previewBounds, rect),
   setDirty: (dirty) => ipcRenderer.send(CH.setDirty, dirty),
   reportSave: (ok) => ipcRenderer.send(CH.saveDone, { ok }),
   ready: () => ipcRenderer.send(CH.ready),
@@ -21,6 +31,13 @@ const api: LibraApi = {
     ipcRenderer.on(CH.fileOpened, handler)
     return () => {
       ipcRenderer.removeListener(CH.fileOpened, handler)
+    }
+  },
+  onPreviewNavigate: (callback) => {
+    const handler = (_event: unknown, path: string): void => callback(path)
+    ipcRenderer.on(CH.previewNavigate, handler)
+    return () => {
+      ipcRenderer.removeListener(CH.previewNavigate, handler)
     }
   },
   onCommand: (callback) => {

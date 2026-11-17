@@ -4,6 +4,8 @@ import { isAbsolute, resolve } from 'node:path'
 import { CH } from '../shared/protocol'
 import { installMenu } from './menu'
 import { isDirty, registerIpc, requestSaveFromRenderer } from './ipc'
+import { createPreviewHost, disposePreviewHost } from './preview'
+import { installPreviewProtocol, registerPreviewScheme } from './protocol'
 import { createMainWindow } from './window'
 
 const OPENABLE = /\.(html?|xhtml)$/i
@@ -12,6 +14,8 @@ let mainWindow: BrowserWindow | null = null
 let pendingFile: string | null = null
 let rendererReady = false
 let allowClose = false
+
+registerPreviewScheme()
 
 function fileFromArgv(argv: readonly string[]): string | null {
   for (const raw of argv.slice(1)) {
@@ -58,6 +62,9 @@ function createWindow(): void {
   mainWindow = win
   rendererReady = false
 
+  const contentsId = win.webContents.id
+  createPreviewHost(win)
+
   win.on('close', (event) => {
     if (allowClose || !isDirty()) return
     event.preventDefault()
@@ -65,6 +72,7 @@ function createWindow(): void {
   })
 
   win.on('closed', () => {
+    disposePreviewHost(contentsId)
     mainWindow = null
     rendererReady = false
   })
@@ -107,6 +115,7 @@ if (!hasLock) {
     }
 
     installSecurityPolicy()
+    installPreviewProtocol()
     registerIpc()
     installMenu()
 
