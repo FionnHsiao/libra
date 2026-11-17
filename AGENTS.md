@@ -34,13 +34,16 @@ parse5（预览↔源码定位）· chardet + iconv-lite（编码）· electron-
 src/main/       主进程：窗口、菜单、文件 IO、预览进程管理
 src/preload/    contextBridge 桥接层（唯一的权限出口）
 src/renderer/   编辑器 UI（CodeMirror 6）
-src/preview/    预览页（沙箱内运行，注入定位脚本）
+src/preview/    预览页（M1 落地；沙箱内运行，注入定位脚本）
 docs/           架构与决策文档
 ```
 
 ## 命令
 
-M0 落地后补全。在此之前不要假设任何构建命令已存在。
+npm run dev      开发模式
+npm run build    类型检查 + 构建
+npm test         编码与换行保真测试
+npm run smoke    启动真实应用，打开样本、保存、比对字节
 
 ## 动手之前先读
 

@@ -13,3 +13,12 @@ npm-debug.log*
 
 # Dependencies
 node_modules/
+
+# Build output
+out/
+dist/
+*.tsbuildinfo
+
+# Local env
+.env
+.env.local
