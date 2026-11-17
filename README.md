@@ -1,10 +1,14 @@
 # Libra
 
-A lightweight reader for reading and editing HTML files.
+A lightweight desktop reader for opening, reading and lightly editing HTML files.
+
+## Documents
+
+- [技术调研与架构方案](docs/architecture.md)
 
 ## Status
 
-Early stage — the project is just getting started.
+Early stage — scaffold in progress.
 
 ## License
 
