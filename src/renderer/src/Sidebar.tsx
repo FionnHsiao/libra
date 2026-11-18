@@ -40,7 +40,7 @@ function FileIcon(): ReactElement {
 
 function PlusIcon(): ReactElement {
   return (
-    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+    <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
       <path d="M8 3.4v9.2M3.4 8h9.2" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   )
@@ -48,38 +48,32 @@ function PlusIcon(): ReactElement {
 
 function RefreshIcon(): ReactElement {
   return (
-    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+    <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
       <path d="M13 8a5 5 0 1 1-1.6-3.7" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
       <path d="M13.2 2.6v3.1H10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
 
+/** 两个箭头指向中间：折叠 */
 function CollapseIcon(): ReactElement {
   return (
-    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+    <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
       <path
-        d="M4.4 8.4 8 4.8l3.6 3.6M4.4 12.6 8 9l3.6 3.6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        d="M6.9 1.2h2.2v3.2H6.9zM4.9 4.4h6.2L8 7.8zM6.9 14.8h2.2v-3.2H6.9zM4.9 11.6h6.2L8 8.2z"
+        fill="currentColor"
       />
     </svg>
   )
 }
 
+/** 两个箭头分开朝外：展开 */
 function ExpandIcon(): ReactElement {
   return (
-    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+    <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
       <path
-        d="M4.4 3.4 8 7l3.6-3.6M4.4 7.6 8 11.2l3.6-3.6"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        d="M6.9 4.8h2.2v2.5H6.9zM4.9 4.8h6.2L8 1.4zM6.9 8.7h2.2V11.2H6.9zM4.9 11.2h6.2L8 14.6z"
+        fill="currentColor"
       />
     </svg>
   )
