@@ -10,6 +10,7 @@
   --accent-soft: rgba(169, 116, 63, 0.13);
   --editor-bg: #fbfaf6;
   --chrome-h: 38px;
+  --title-h: 40px;
 }
 
 * {
@@ -55,8 +56,158 @@ body {
 
 .app {
   display: grid;
-  grid-template-rows: minmax(0, 1fr) 28px;
+  grid-template-rows: var(--title-h) minmax(0, 1fr);
   height: 100%;
+}
+
+/* ---- 标题栏（自绘，含菜单） ---- */
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  height: var(--title-h);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg);
+  -webkit-app-region: drag;
+}
+
+.titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 12px;
+  flex-shrink: 1;
+  min-width: 0;
+  -webkit-app-region: no-drag;
+}
+
+.brand-mark {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fffaf0;
+  background: linear-gradient(140deg, #c08a4d, #9a6631);
+  flex-shrink: 0;
+}
+
+.titlebar-title {
+  flex: 1;
+  min-width: 0;
+  padding: 0 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  -webkit-app-region: drag;
+}
+
+.titlebar-title.status {
+  color: var(--accent-strong);
+}
+
+.titlebar-fill {
+  width: 142px;
+  flex-shrink: 0;
+}
+
+/* ---- 菜单 ---- */
+
+.menubar {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  -webkit-app-region: no-drag;
+}
+
+.menubar-group {
+  position: relative;
+}
+
+.menubar-button {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #4c463a;
+  font-size: 12.5px;
+  line-height: 20px;
+}
+
+.menubar-button:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.045);
+  color: var(--text);
+}
+
+.menubar-button.open {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.menu-dropdown {
+  position: absolute;
+  top: calc(100% + 5px);
+  left: 0;
+  z-index: 100;
+  min-width: 214px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fffdf8;
+  box-shadow: 0 14px 34px rgba(60, 45, 20, 0.14), 0 2px 6px rgba(60, 45, 20, 0.06);
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 28px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12.5px;
+  text-align: left;
+}
+
+.menu-item:hover:not(:disabled) {
+  background: var(--panel-hover);
+  color: var(--accent-strong);
+}
+
+.menu-item:disabled {
+  opacity: 0.36;
+}
+
+.menu-check {
+  width: 14px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.menu-label {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.menu-accel {
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.menu-separator {
+  height: 1px;
+  margin: 5px 6px;
+  background: var(--line);
 }
 
 /* ---- 主体三栏 ---- */
@@ -200,9 +351,31 @@ body {
   flex-shrink: 0;
 }
 
-.save-btn {
+.cursor-pos {\n  font-size: 11px;\n  color: var(--muted);\n  font-variant-numeric: tabular-nums;\n}\n\n.save-btn {
   font-size: 11.5px;
   padding: 4px 11px;
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.icon-btn:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--text);
+}
+
+.icon-btn.on {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
 }
 
 /* ---- 通用按钮 ---- */
@@ -505,32 +678,4 @@ button.primary:hover:not(:disabled) {
   font-size: 12.5px;
   line-height: 1.8;
   color: var(--muted);
-}
-
-/* ---- 状态栏 ---- */
-
-.statusbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 0 14px;
-  border-top: 1px solid var(--line);
-  background: var(--bg);
-  font-size: 11.5px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.status-path {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.status-meta {
-  display: flex;
-  gap: 14px;
-  flex-shrink: 0;
 }

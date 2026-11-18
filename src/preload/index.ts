@@ -4,7 +4,6 @@ import {
   type CommandMessage,
   type LibraApi,
   type OutlineItem,
-  type PanelVisibility,
   type PreviewRect
 } from '../shared/protocol'
 
@@ -20,9 +19,8 @@ const api: LibraApi = {
   reloadPreview: () => ipcRenderer.send(CH.previewReload),
   setPreviewBounds: (rect: PreviewRect | null) => ipcRenderer.send(CH.previewBounds, rect),
   scrollPreviewTo: (index) => ipcRenderer.send(CH.previewScrollTo, index),
-  setPanelsVisible: (panels: PanelVisibility) => ipcRenderer.send(CH.panelVisibility, panels),
-  setViewMode: (mode) => ipcRenderer.send(CH.viewMode, mode),
   revealInFolder: (path) => ipcRenderer.send(CH.reveal, path),
+  appAction: (action) => ipcRenderer.send(CH.appAction, action),
   setDirty: (dirty) => ipcRenderer.send(CH.setDirty, dirty),
   reportSave: (ok) => ipcRenderer.send(CH.saveDone, { ok }),
   ready: () => ipcRenderer.send(CH.ready),

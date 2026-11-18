@@ -1,10 +1,12 @@
 import type { EditorState } from '@codemirror/state'
 import type { EditorView } from '@codemirror/view'
+import { redo, undo } from '@codemirror/commands'
 import { openSearchPanel } from '@codemirror/search'
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { DocumentData, OutlineItem, PreviewRect, ViewMode } from '../../shared/protocol'
 import { Editor } from './Editor'
 import { createEditorState, editorHooks } from './editorState'
+import { MenuBar, OutlineIcon, type MenuGroup } from './MenuBar'
 import { PreviewPane } from './PreviewPane'
 import { FileTree, OutlinePanel } from './Sidebar'
 
@@ -44,12 +46,6 @@ function describeError(error: unknown): string {
   return String(error)
 }
 
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
-
 function EmptyState({ onOpen }: { onOpen: () => void }): ReactElement {
   return (
     <div className="empty">
@@ -72,7 +68,7 @@ export function App(): ReactElement {
   const [outline, setOutline] = useState<OutlineItem[]>([])
   const [status, setStatus] = useState<string | null>(null)
   const [filesVisible, setFilesVisible] = useState(true)
-  const [outlineVisible, setOutlineVisible] = useState(true)
+  const [outlineVisible, setOutlineVisible] = useState(false)
 
   const tabsRef = useRef<Tab[]>([])
   const activePathRef = useRef<string | null>(null)
@@ -272,6 +268,13 @@ export function App(): ReactElement {
     }, 80)
   }, [])
 
+  const editorCommand = useCallback((action: 'undo' | 'redo') => {
+    const view = viewRef.current
+    if (!view) return
+    if (action === 'undo') undo(view)
+    else redo(view)
+  }, [])
+
   useEffect(() => {
     editorHooks.onCursor = (line, column) => setCursor({ line, column })
     editorHooks.onState = (state) => {
@@ -287,22 +290,8 @@ export function App(): ReactElement {
   }, [markDirty])
 
   useEffect(() => {
-    window.libra.setViewMode(mode)
-  }, [mode])
-
-  useEffect(() => {
-    window.libra.setPanelsVisible({ files: filesVisible, outline: outlineVisible })
-  }, [filesVisible, outlineVisible])
-
-  useEffect(() => {
     window.libra.setDirty(tabs.some((tab) => tab.dirty))
   }, [tabs])
-
-  useEffect(() => {
-    const active = tabs.find((tab) => tab.path === activePath) ?? null
-    const name = active ? baseName(active.path) : '未打开文件'
-    document.title = active ? `Libra — ${name}${active.dirty ? ' •' : ''}` : 'Libra'
-  }, [tabs, activePath])
 
   useEffect(() => {
     if (!activePath) {
@@ -347,10 +336,6 @@ export function App(): ReactElement {
         setOutlineVisible((current) => !current)
         return
       }
-      if (message.id === 'save-all') {
-        void saveAll().then((ok) => window.libra.reportSave(ok))
-        return
-      }
       if (message.id === 'find') {
         openFind()
         return
@@ -362,6 +347,10 @@ export function App(): ReactElement {
       }
       if (message.id === 'reload-preview') {
         window.libra.reloadPreview()
+        return
+      }
+      if (message.id === 'save-all') {
+        void saveAll().then((ok) => window.libra.reportSave(ok))
         return
       }
       void saveActive().then((ok) => window.libra.reportSave(ok))
@@ -416,16 +405,137 @@ export function App(): ReactElement {
   }, [status])
 
   const activeTab = tabs.find((tab) => tab.path === activePath) ?? null
+  const hasTab = activeTab !== null
+
+  const menus: MenuGroup[] = [
+    {
+      label: '文件',
+      items: [
+        { type: 'item', label: '打开…', accelerator: 'Ctrl+O', onSelect: () => void openViaDialog() },
+        {
+          type: 'item',
+          label: '在文件夹中显示',
+          disabled: !hasTab,
+          onSelect: () => {
+            if (activeTab) window.libra.revealInFolder(activeTab.path)
+          }
+        },
+        { type: 'separator' },
+        { type: 'item', label: '保存', accelerator: 'Ctrl+S', disabled: !hasTab, onSelect: () => void saveActive() },
+        {
+          type: 'item',
+          label: '另存为…',
+          accelerator: 'Ctrl+Shift+S',
+          disabled: !hasTab,
+          onSelect: () => void saveDocumentAs()
+        },
+        {
+          type: 'item',
+          label: '关闭标签页',
+          accelerator: 'Ctrl+W',
+          disabled: !hasTab,
+          onSelect: () => {
+            if (activeTab) void closeTab(activeTab.path)
+          }
+        },
+        { type: 'separator' },
+        { type: 'item', label: '退出', accelerator: 'Alt+F4', onSelect: () => window.libra.appAction('quit') }
+      ]
+    },
+    {
+      label: '编辑',
+      items: [
+        {
+          type: 'item',
+          label: '撤销',
+          accelerator: 'Ctrl+Z',
+          disabled: !hasTab,
+          onSelect: () => editorCommand('undo')
+        },
+        {
+          type: 'item',
+          label: '重做',
+          accelerator: 'Ctrl+Y',
+          disabled: !hasTab,
+          onSelect: () => editorCommand('redo')
+        },
+        { type: 'separator' },
+        { type: 'item', label: '剪切', accelerator: 'Ctrl+X', onSelect: () => window.libra.appAction('cut') },
+        { type: 'item', label: '复制', accelerator: 'Ctrl+C', onSelect: () => window.libra.appAction('copy') },
+        { type: 'item', label: '粘贴', accelerator: 'Ctrl+V', onSelect: () => window.libra.appAction('paste') },
+        { type: 'item', label: '全选', accelerator: 'Ctrl+A', onSelect: () => window.libra.appAction('select-all') },
+        { type: 'separator' },
+        {
+          type: 'item',
+          label: '查找 / 替换…',
+          accelerator: 'Ctrl+F',
+          disabled: !hasTab,
+          onSelect: () => openFind()
+        }
+      ]
+    },
+    {
+      label: '视图',
+      items: [
+        {
+          type: 'item',
+          label: '文件列表',
+          accelerator: 'Ctrl+B',
+          checked: filesVisible,
+          onSelect: () => setFilesVisible((current) => !current)
+        },
+        {
+          type: 'item',
+          label: '大纲',
+          accelerator: 'Ctrl+Shift+B',
+          checked: outlineVisible,
+          onSelect: () => setOutlineVisible((current) => !current)
+        },
+        {
+          type: 'item',
+          label: '编辑模式',
+          accelerator: 'Ctrl+E',
+          checked: mode === 'edit',
+          onSelect: () => setMode((current) => (current === 'read' ? 'edit' : 'read'))
+        },
+        { type: 'separator' },
+        { type: 'item', label: '实际大小', accelerator: 'Ctrl+0', onSelect: () => window.libra.appAction('zoom-reset') },
+        { type: 'item', label: '放大', accelerator: 'Ctrl+=', onSelect: () => window.libra.appAction('zoom-in') },
+        { type: 'item', label: '缩小', accelerator: 'Ctrl+-', onSelect: () => window.libra.appAction('zoom-out') },
+        { type: 'separator' },
+        { type: 'item', label: '全屏', accelerator: 'F11', onSelect: () => window.libra.appAction('toggle-fullscreen') },
+        { type: 'item', label: '刷新预览', accelerator: 'Ctrl+R', onSelect: () => window.libra.reloadPreview() },
+        { type: 'item', label: '开发者工具', onSelect: () => window.libra.appAction('toggle-devtools') }
+      ]
+    },
+    {
+      label: '帮助',
+      items: [
+        { type: 'item', label: '快捷键', onSelect: () => window.libra.appAction('shortcuts') },
+        { type: 'item', label: '项目主页', onSelect: () => window.libra.appAction('homepage') },
+        { type: 'separator' },
+        { type: 'item', label: '关于 Libra', onSelect: () => window.libra.appAction('about') }
+      ]
+    }
+  ]
+
+  const activeName = activeTab ? baseName(activeTab.path) : 'Libra'
+  const titleText = status ?? (activeTab ? `${activeName}${activeTab.dirty ? ' •' : ''}` : 'Libra')
 
   return (
     <div className="app">
+      <header className="titlebar">
+        <div className="titlebar-left">
+          <span className="brand-mark">L</span>
+          <MenuBar groups={menus} />
+        </div>
+        <div className={status ? 'titlebar-title status' : 'titlebar-title'}>{titleText}</div>
+        <div className="titlebar-fill" />
+      </header>
+
       <div className="body">
         {filesVisible && rootDir ? (
-          <FileTree
-            rootDir={rootDir}
-            activePath={activePath}
-            onOpenFile={(path) => void openFile(path)}
-          />
+          <FileTree rootDir={rootDir} activePath={activePath} onOpenFile={(path) => void openFile(path)} />
         ) : null}
 
         <section className="center">
@@ -459,29 +569,35 @@ export function App(): ReactElement {
             </div>
 
             <div className="tab-actions">
+              {mode === 'edit' && activeTab ? (
+                <span className="cursor-pos" title="光标位置">
+                  {cursor.line}:{cursor.column}
+                </span>
+              ) : null}
               <div className="segmented" role="group" aria-label="视图模式">
-                <button
-                  type="button"
-                  className={mode === 'read' ? 'on' : ''}
-                  onClick={() => setMode('read')}
-                >
+                <button type="button" className={mode === 'read' ? 'on' : ''} onClick={() => setMode('read')}>
                   阅读
                 </button>
-                <button
-                  type="button"
-                  className={mode === 'edit' ? 'on' : ''}
-                  onClick={() => setMode('edit')}
-                >
+                <button type="button" className={mode === 'edit' ? 'on' : ''} onClick={() => setMode('edit')}>
                   编辑
                 </button>
               </div>
               <button
                 className="primary save-btn"
                 type="button"
-                disabled={!activeTab || !activeTab.dirty}
+                disabled={!hasTab || !activeTab?.dirty}
                 onClick={() => void saveActive()}
               >
                 保存
+              </button>
+              <button
+                type="button"
+                className={outlineVisible ? 'icon-btn on' : 'icon-btn'}
+                title={outlineVisible ? '隐藏大纲' : '显示大纲'}
+                aria-label={outlineVisible ? '隐藏大纲' : '显示大纲'}
+                onClick={() => setOutlineVisible((current) => !current)}
+              >
+                <OutlineIcon active={outlineVisible} />
               </button>
             </div>
           </div>
@@ -502,26 +618,8 @@ export function App(): ReactElement {
           </main>
         </section>
 
-        {outlineVisible && activeTab ? (
-          <OutlinePanel outline={outline} onJump={handleOutlineJump} />
-        ) : null}
+        {outlineVisible && activeTab ? <OutlinePanel outline={outline} onJump={handleOutlineJump} /> : null}
       </div>
-
-      <footer className="statusbar">
-        <span className="status-path" title={status ?? activeTab?.path ?? ''}>
-          {status ?? activeTab?.path ?? '—'}
-        </span>
-        <span className="status-meta">
-          {activeTab ? <span>{activeTab.data.encoding.toUpperCase()}</span> : null}
-          {activeTab ? <span>{activeTab.data.eol}</span> : null}
-          {activeTab && mode === 'edit' ? (
-            <span>
-              行 {cursor.line}，列 {cursor.column}
-            </span>
-          ) : null}
-          {activeTab ? <span>{formatSize(activeTab.data.size)}</span> : null}
-        </span>
-      </footer>
     </div>
   )
 }

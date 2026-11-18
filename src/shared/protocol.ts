@@ -60,11 +60,6 @@ export interface OutlineItem {
   text: string
 }
 
-export interface PanelVisibility {
-  files: boolean
-  outline: boolean
-}
-
 export interface PreviewRect {
   x: number
   y: number
@@ -77,6 +72,8 @@ export type CommandId =
   | 'save'
   | 'save-as'
   | 'save-all'
+  | 'undo'
+  | 'redo'
   | 'toggle-mode'
   | 'toggle-files'
   | 'toggle-outline'
@@ -84,6 +81,21 @@ export type CommandId =
   | 'find'
   | 'reveal'
   | 'reload-preview'
+
+export type AppAction =
+  | 'quit'
+  | 'toggle-devtools'
+  | 'toggle-fullscreen'
+  | 'zoom-in'
+  | 'zoom-out'
+  | 'zoom-reset'
+  | 'shortcuts'
+  | 'about'
+  | 'homepage'
+  | 'cut'
+  | 'copy'
+  | 'paste'
+  | 'select-all'
 
 export interface CommandMessage {
   id: CommandId
@@ -101,9 +113,8 @@ export interface LibraApi {
   reloadPreview(): void
   setPreviewBounds(rect: PreviewRect | null): void
   scrollPreviewTo(index: number): void
-  setPanelsVisible(panels: PanelVisibility): void
-  setViewMode(mode: ViewMode): void
   revealInFolder(path: string): void
+  appAction(action: AppAction): void
   setDirty(dirty: boolean): void
   reportSave(ok: boolean): void
   ready(): void
@@ -135,9 +146,8 @@ export const CH = {
   previewNavigate: 'libra:preview:navigate',
   previewOutline: 'libra:preview:outline',
   previewScrollTo: 'libra:preview:scroll-to',
-  panelVisibility: 'libra:panels:visible',
-  viewMode: 'libra:view:mode',
   reveal: 'libra:file:reveal',
+  appAction: 'libra:app:action',
   command: 'libra:command',
   ready: 'libra:app:ready'
 } as const

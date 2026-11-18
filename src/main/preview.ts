@@ -1,6 +1,7 @@
 import { BrowserWindow, shell, WebContentsView } from 'electron'
 import { dirname } from 'node:path'
 import { CH, type OutlineItem, type PreviewRect } from '../shared/protocol'
+import { handleShortcutInput } from './menu'
 import { PREVIEW_PARTITION, allowRoot, fromPreviewUrl, toPreviewUrl } from './protocol'
 
 const hosts = new Map<number, PreviewHost>()
@@ -40,6 +41,10 @@ export class PreviewHost {
     win.contentView.addChildView(this.view)
 
     const contents = this.view.webContents
+
+    contents.on('before-input-event', (event, input) => {
+      handleShortcutInput(event, input, win)
+    })
 
     contents.setWindowOpenHandler(({ url }) => {
       if (url.startsWith('http://') || url.startsWith('https://')) {

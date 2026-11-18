@@ -1,21 +1,13 @@
-import { app, BrowserWindow, dialog, Menu, shell, type MenuItemConstructorOptions } from 'electron'
-import { CH, type CommandId, type ViewMode } from '../shared/protocol'
+import { BrowserWindow, dialog, Menu, type Event as ElectronEvent, type Input } from 'electron'
+import { CH, type CommandId } from '../shared/protocol'
 
-const FILES_ITEM_ID = 'files-toggle'
-const OUTLINE_ITEM_ID = 'outline-toggle'
-const MODE_EDIT_ITEM_ID = 'mode-edit'
-
-let filesVisible = true
-let outlineVisible = true
-let viewMode: ViewMode = 'read'
-
-const SHORTCUTS = [
+const SHORTCUTS_TEXT = [
   '打开              Ctrl+O',
   '保存              Ctrl+S',
   '另存为            Ctrl+Shift+S',
+  '关闭标签页         Ctrl+W',
   '切换阅读 / 编辑    Ctrl+E',
   '文件列表           Ctrl+B',
-  '关闭标签页         Ctrl+W',
   '大纲              Ctrl+Shift+B',
   '在编辑模式查找      Ctrl+F',
   '放大 / 缩小        Ctrl+= / Ctrl+-',
@@ -23,142 +15,111 @@ const SHORTCUTS = [
   '全屏              F11'
 ].join('\n')
 
-function focusedWindow(): BrowserWindow | null {
-  return BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null
-}
-
-function sendCommand(id: CommandId): void {
-  focusedWindow()?.webContents.send(CH.command, { id })
-}
-
-export function setPanelsChecked(files: boolean, outline: boolean): void {
-  filesVisible = files
-  outlineVisible = outline
-  const menu = Menu.getApplicationMenu()
-  const filesItem = menu?.getMenuItemById(FILES_ITEM_ID)
-  const outlineItem = menu?.getMenuItemById(OUTLINE_ITEM_ID)
-  if (filesItem) filesItem.checked = files
-  if (outlineItem) outlineItem.checked = outline
-}
-
-export function setModeChecked(mode: ViewMode): void {
-  viewMode = mode
-  const item = Menu.getApplicationMenu()?.getMenuItemById(MODE_EDIT_ITEM_ID)
-  if (item) item.checked = mode === 'edit'
-}
-
-const macAppMenu: MenuItemConstructorOptions = {
-  label: app.name,
-  submenu: [
-    { role: 'about', label: '关于 Libra' },
-    { type: 'separator' },
-    { role: 'hide', label: '隐藏 Libra' },
-    { role: 'hideOthers', label: '隐藏其他' },
-    { type: 'separator' },
-    { role: 'quit', label: '退出 Libra' }
-  ]
-}
-
+/** 没有原生菜单了：菜单由渲染进程自绘在标题栏里。 */
 export function installMenu(): void {
-  const isMac = process.platform === 'darwin'
+  Menu.setApplicationMenu(null)
+}
 
-  const template: MenuItemConstructorOptions[] = [
-    ...(isMac ? [macAppMenu] : []),
-    {
-      label: '文件',
-      submenu: [
-        { label: '打开…', accelerator: 'CmdOrCtrl+O', click: () => sendCommand('open') },
-        { label: '在文件夹中显示', click: () => sendCommand('reveal') },
-        { type: 'separator' },
-        { label: '保存', accelerator: 'CmdOrCtrl+S', click: () => sendCommand('save') },
-        { label: '另存为…', accelerator: 'CmdOrCtrl+Shift+S', click: () => sendCommand('save-as') },
-        { label: '关闭标签页', accelerator: 'CmdOrCtrl+W', click: () => sendCommand('close-tab') },
-        { type: 'separator' },
-        isMac ? { role: 'close', label: '关闭窗口' } : { role: 'quit', label: '退出' }
-      ]
-    },
-    {
-      label: '编辑',
-      submenu: [
-        { role: 'undo', label: '撤销' },
-        { role: 'redo', label: '重做' },
-        { type: 'separator' },
-        { role: 'cut', label: '剪切' },
-        { role: 'copy', label: '复制' },
-        { role: 'paste', label: '粘贴' },
-        { role: 'selectAll', label: '全选' },
-        { type: 'separator' },
-        { label: '查找 / 替换…', accelerator: 'CmdOrCtrl+F', click: () => sendCommand('find') }
-      ]
-    },
-    {
-      label: '视图',
-      submenu: [
-        {
-          id: FILES_ITEM_ID,
-          label: '文件列表',
-          type: 'checkbox',
-          checked: filesVisible,
-          accelerator: 'CmdOrCtrl+B',
-          click: () => sendCommand('toggle-files')
-        },
-        {
-          id: OUTLINE_ITEM_ID,
-          label: '大纲',
-          type: 'checkbox',
-          checked: outlineVisible,
-          accelerator: 'CmdOrCtrl+Shift+B',
-          click: () => sendCommand('toggle-outline')
-        },
-        { type: 'separator' },
-        {
-          id: MODE_EDIT_ITEM_ID,
-          label: '编辑模式（源码 + 预览）',
-          type: 'checkbox',
-          checked: viewMode === 'edit',
-          accelerator: 'CmdOrCtrl+E',
-          click: () => sendCommand('toggle-mode')
-        },
-        { type: 'separator' },
-        { role: 'resetZoom', label: '实际大小' },
-        { role: 'zoomIn', label: '放大' },
-        { role: 'zoomOut', label: '缩小' },
-        { type: 'separator' },
-        { role: 'togglefullscreen', label: '全屏' },
-        { type: 'separator' },
-        { label: '刷新预览', accelerator: 'CmdOrCtrl+R', click: () => sendCommand('reload-preview') },
-        { role: 'toggleDevTools', label: '开发者工具' }
-      ]
-    },
-    {
-      label: '帮助',
-      submenu: [
-        {
-          label: '快捷键',
-          click: () => {
-            const win = focusedWindow()
-            const options = {
-              type: 'info' as const,
-              title: '快捷键',
-              message: 'Libra 快捷键',
-              detail: SHORTCUTS,
-              buttons: ['知道了']
-            }
-            if (win) void dialog.showMessageBox(win, options)
-            else void dialog.showMessageBox(options)
-          }
-        },
-        {
-          label: '项目主页',
-          click: () => {
-            void shell.openExternal('https://github.com/FionnHsiao/libra')
-          }
-        },
-        { type: 'separator' },
-        { label: '关于 Libra', click: () => app.showAboutPanel() }
-      ]
-    }
-  ]
+export function showShortcutsDialog(win: BrowserWindow | null): void {
+  const options = {
+    type: 'info' as const,
+    title: '快捷键',
+    message: 'Libra 快捷键',
+    detail: SHORTCUTS_TEXT,
+    buttons: ['知道了']
+  }
+  if (win) void dialog.showMessageBox(win, options)
+  else void dialog.showMessageBox(options)
+}
 
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+export function adjustZoom(win: BrowserWindow, delta: number): void {
+  const current = win.webContents.getZoomFactor()
+  const next = Math.min(2, Math.max(0.5, Math.round((current + delta) * 10) / 10))
+  win.webContents.setZoomFactor(next)
+}
+
+function send(win: BrowserWindow, id: CommandId): void {
+  win.webContents.send(CH.command, { id })
+}
+
+/**
+ * 原生菜单去掉后，快捷键由 here 统一接管。
+ * 主窗口和预览视图都会挂这个处理，保证在阅读时按键也有效。
+ */
+export function handleShortcutInput(event: ElectronEvent, input: Input, win: BrowserWindow): void {
+  if (input.type !== 'keyDown') return
+
+  const key = (input.key ?? '').toLowerCase()
+
+  if (key === 'f11') {
+    event.preventDefault()
+    win.setFullScreen(!win.isFullScreen())
+    return
+  }
+
+  const mod = process.platform === 'darwin' ? input.meta : input.control
+  if (!mod || input.alt) return
+
+  const shift = input.shift
+
+  if (key === '=' || key === '+') {
+    event.preventDefault()
+    adjustZoom(win, 0.1)
+    return
+  }
+  if (key === '-') {
+    event.preventDefault()
+    adjustZoom(win, -0.1)
+    return
+  }
+  if (key === '0') {
+    event.preventDefault()
+    win.webContents.setZoomFactor(1)
+    return
+  }
+
+  if (key === 'o' && !shift) {
+    event.preventDefault()
+    send(win, 'open')
+    return
+  }
+  if (key === 's' && shift) {
+    event.preventDefault()
+    send(win, 'save-as')
+    return
+  }
+  if (key === 's') {
+    event.preventDefault()
+    send(win, 'save')
+    return
+  }
+  if (key === 'w' && !shift) {
+    event.preventDefault()
+    send(win, 'close-tab')
+    return
+  }
+  if (key === 'e' && !shift) {
+    event.preventDefault()
+    send(win, 'toggle-mode')
+    return
+  }
+  if (key === 'b' && shift) {
+    event.preventDefault()
+    send(win, 'toggle-outline')
+    return
+  }
+  if (key === 'b') {
+    event.preventDefault()
+    send(win, 'toggle-files')
+    return
+  }
+  if (key === 'f' && !shift) {
+    event.preventDefault()
+    send(win, 'find')
+    return
+  }
+  if (key === 'r' && !shift) {
+    event.preventDefault()
+    send(win, 'reload-preview')
+  }
 }

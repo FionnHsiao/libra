@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { promises as fs } from 'node:fs'
 import { extname, isAbsolute, join, resolve } from 'node:path'
 import {
@@ -14,7 +14,7 @@ import {
   type SavePayload
 } from '../shared/protocol'
 import { readDocument, writeTextAtomic } from './files'
-import { setModeChecked, setPanelsChecked } from './menu'
+import { adjustZoom, showShortcutsDialog } from './menu'
 import { getPreviewHost } from './preview'
 
 const allowedExtensions = new Set<string>(ALLOWED_EXTENSIONS)
@@ -260,14 +260,53 @@ export function registerIpc(): void {
     getPreviewHost(win.webContents.id)?.scrollTo(rawIndex)
   })
 
-  ipcMain.on(CH.panelVisibility, (_event, value: unknown) => {
-    if (typeof value !== 'object' || value === null) return
-    const panels = value as { files?: unknown; outline?: unknown }
-    setPanelsChecked(panels.files === true, panels.outline === true)
-  })
+  ipcMain.on(CH.appAction, (event, rawAction: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win || typeof rawAction !== 'string') return
 
-  ipcMain.on(CH.viewMode, (_event, value: unknown) => {
-    if (value === 'read' || value === 'edit') setModeChecked(value)
+    switch (rawAction) {
+      case 'quit':
+        app.quit()
+        break
+      case 'toggle-devtools':
+        win.webContents.toggleDevTools()
+        break
+      case 'toggle-fullscreen':
+        win.setFullScreen(!win.isFullScreen())
+        break
+      case 'zoom-in':
+        adjustZoom(win, 0.1)
+        break
+      case 'zoom-out':
+        adjustZoom(win, -0.1)
+        break
+      case 'zoom-reset':
+        win.webContents.setZoomFactor(1)
+        break
+      case 'shortcuts':
+        showShortcutsDialog(win)
+        break
+      case 'about':
+        app.showAboutPanel()
+        break
+      case 'homepage':
+        void shell.openExternal('https://github.com/FionnHsiao/libra')
+        break
+      case 'cut':
+        win.webContents.cut()
+        break
+      case 'copy':
+        win.webContents.copy()
+        break
+      case 'paste':
+        win.webContents.paste()
+        break
+      case 'select-all':
+        win.webContents.selectAll()
+        break
+      default:
+        break
+    }
   })
 
   ipcMain.on(CH.reveal, (_event, rawPath: unknown) => {
