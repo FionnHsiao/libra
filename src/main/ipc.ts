@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { promises as fs } from 'node:fs'
-import { extname, isAbsolute, join, resolve } from 'node:path'
+import { dirname, extname, isAbsolute, join, resolve } from 'node:path'
 import {
   ALLOWED_EXTENSIONS,
   CH,
@@ -15,6 +15,7 @@ import {
 } from '../shared/protocol'
 import { readDocument, writeTextAtomic } from './files'
 import { loadJars, saveJars } from './settings'
+import { syncWatchers } from './watcher'
 import { adjustZoom, showShortcutsDialog } from './menu'
 import { getPreviewHost } from './preview'
 
@@ -41,6 +42,32 @@ export function assertDocumentPath(value: unknown): string {
     throw new Error(`不支持的文件类型：${extension || '(无扩展名)'}`)
   }
   return resolve(value)
+}
+
+const INVALID_NAME = /[\\/:*?"<>|]/
+
+async function assertExistingPath(value: unknown): Promise<string> {
+  if (typeof value !== 'string' || value.length === 0 || value.length > 4096) {
+    throw new Error('非法的路径')
+  }
+  if (!isAbsolute(value)) throw new Error('只接受绝对路径')
+  try {
+    await fs.stat(value)
+  } catch {
+    throw new Error('目标不存在')
+  }
+  return resolve(value)
+}
+
+function assertNewName(value: unknown): string {
+  if (typeof value !== 'string') throw new Error('文件名必须是字符串')
+  const name = value.trim()
+  if (!name) throw new Error('文件名不能为空')
+  if (name === '.' || name === '..') throw new Error('文件名不合法')
+  if (name.length > 200) throw new Error('文件名过长')
+  if (INVALID_NAME.test(name)) throw new Error('文件名不能包含 \\ / : * ? " < > |')
+  if (/[.\s]$/.test(name)) throw new Error('文件名不能以点或空格结尾')
+  return name
 }
 
 function assertDirectoryPath(value: unknown): string {
@@ -203,6 +230,16 @@ export function registerIpc(): void {
     if (!Array.isArray(rawJars)) return
     const jars = rawJars.filter((item): item is string => typeof item === 'string')
     saveJars(jars)
+    syncWatchers(jars)
+  })
+
+  ipcMain.handle(CH.renamePath, async (_event, rawPath: unknown, rawName: unknown): Promise<string> => {
+    const target = await assertExistingPath(rawPath)
+    const name = assertNewName(rawName)
+    const next = join(dirname(target), name)
+    if (next.toLowerCase() === target.toLowerCase()) return target
+    await fs.rename(target, next)
+    return next
   })
 
   ipcMain.handle(CH.pickFolder, async (event): Promise<string | null> => {

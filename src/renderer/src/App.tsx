@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from 'rea
 import type { DocumentData, OutlineItem, PreviewRect, ViewMode } from '../../shared/protocol'
 import { Editor } from './Editor'
 import { createEditorState, editorHooks } from './editorState'
-import { FilesIcon, GitIcon, HomeIcon, LibraMark, MenuBar, OutlineIcon, type MenuGroup } from './MenuBar'
+import { GitIcon, HomeIcon, LibraMark, MenuBar, OutlineIcon, type MenuGroup } from './MenuBar'
 import { PreviewPane } from './PreviewPane'
 import { FileTree, OutlinePanel } from './Sidebar'
 
@@ -121,6 +121,36 @@ export function App(): ReactElement {
       setStatus(describeError(error))
     }
   }, [commitJars])
+
+  const handleRenamed = useCallback(
+    (from: string, to: string) => {
+      const mapPath = (path: string): string | null => {
+        if (path.toLowerCase() === from.toLowerCase()) return to
+        if (isInside(from, path)) return to + path.slice(from.length)
+        return null
+      }
+
+      const nextJars = jarsRef.current.map((jar) => (jar.toLowerCase() === from.toLowerCase() ? to : jar))
+      if (nextJars.some((jar, index) => jar !== jarsRef.current[index])) commitJars(nextJars)
+
+      let tabsChanged = false
+      const nextTabs = tabsRef.current.map((tab) => {
+        const mapped = mapPath(tab.path)
+        if (!mapped) return tab
+        tabsChanged = true
+        return { ...tab, path: mapped, data: { ...tab.data, path: mapped } }
+      })
+      if (tabsChanged) commit(nextTabs)
+
+      const current = activePathRef.current
+      const mapped = current ? mapPath(current) : null
+      if (mapped) {
+        activePathRef.current = mapped
+        setActivePath(mapped)
+      }
+    },
+    [commit, commitJars]
+  )
 
   const removeJar = useCallback(
     (path: string) => {
@@ -568,15 +598,6 @@ export function App(): ReactElement {
       <header className="titlebar">
         <div className="titlebar-left">
           <LibraMark />
-          <button
-            type="button"
-            className={filesVisible ? 'icon-btn files-toggle on' : 'icon-btn files-toggle'}
-            title={filesVisible ? '隐藏文件列表' : '显示文件列表'}
-            aria-label={filesVisible ? '隐藏文件列表' : '显示文件列表'}
-            onClick={() => setFilesVisible((current) => !current)}
-          >
-            <FilesIcon active={filesVisible} />
-          </button>
           <MenuBar groups={menus} />
         </div>
         <div className={status ? 'titlebar-title status' : 'titlebar-title'}>{titleText}</div>
@@ -618,6 +639,8 @@ export function App(): ReactElement {
               onAddJar={() => void addJar()}
               onRemoveJar={removeJar}
               onHide={() => setFilesVisible(false)}
+              onRenamed={handleRenamed}
+              onError={setStatus}
             />
           ) : null}
 

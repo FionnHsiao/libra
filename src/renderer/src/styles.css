@@ -627,6 +627,32 @@ button.primary:hover:not(:disabled) {
   display: block;
 }
 
+.context-menu {
+  position: fixed;
+  z-index: 200;
+  min-width: 168px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.rename-input {
+  flex: 1;
+  min-width: 0;
+  height: 22px;
+  margin-right: 2px;
+  padding: 0 6px;
+  border: 1px solid rgba(0, 0, 0, 0.22);
+  border-radius: 5px;
+  background: #ffffff;
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+
 .jar-empty {
   margin: 10px 8px;
   font-size: 12px;

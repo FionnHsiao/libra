@@ -108,6 +108,7 @@ export interface LibraApi {
   saveAs(payload: SaveAsPayload): Promise<{ path: string } | null>
   listFolder(dir: string): Promise<FolderListing>
   pickFolder(): Promise<string | null>
+  renamePath(path: string, name: string): Promise<string>
   getJars(): Promise<string[]>
   setJars(jars: string[]): void
   readDir(dir: string): Promise<DirListing>
@@ -125,6 +126,7 @@ export interface LibraApi {
   onFileOpened(callback: (path: string) => void): () => void
   onPreviewNavigate(callback: (path: string) => void): () => void
   onOutline(callback: (items: OutlineItem[]) => void): () => void
+  onTreeChanged(callback: (payload: { dir: string }) => void): () => void
   onCommand(callback: (message: CommandMessage) => void): () => void
 }
 
@@ -139,6 +141,8 @@ export const CH = {
   saveAs: 'libra:file:save-as',
   listFolder: 'libra:folder:list',
   pickFolder: 'libra:folder:pick',
+  renamePath: 'libra:file:rename',
+  treeChanged: 'libra:tree:changed',
   jarsGet: 'libra:jars:get',
   jarsSet: 'libra:jars:set',
   readDir: 'libra:folder:read-dir',

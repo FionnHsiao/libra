@@ -14,6 +14,7 @@ const api: LibraApi = {
   saveAs: (payload) => ipcRenderer.invoke(CH.saveAs, payload),
   listFolder: (dir) => ipcRenderer.invoke(CH.listFolder, dir),
   pickFolder: () => ipcRenderer.invoke(CH.pickFolder),
+  renamePath: (path, name) => ipcRenderer.invoke(CH.renamePath, path, name),
   getJars: () => ipcRenderer.invoke(CH.jarsGet),
   setJars: (jars) => ipcRenderer.send(CH.jarsSet, jars),
   readDir: (dir) => ipcRenderer.invoke(CH.readDir, dir),
@@ -53,6 +54,13 @@ const api: LibraApi = {
     ipcRenderer.on(CH.previewOutline, handler)
     return () => {
       ipcRenderer.removeListener(CH.previewOutline, handler)
+    }
+  },
+  onTreeChanged: (callback) => {
+    const handler = (_event: unknown, payload: { dir: string }): void => callback(payload)
+    ipcRenderer.on(CH.treeChanged, handler)
+    return () => {
+      ipcRenderer.removeListener(CH.treeChanged, handler)
     }
   },
   onCommand: (callback) => {

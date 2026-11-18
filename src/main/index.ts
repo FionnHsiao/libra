@@ -4,6 +4,8 @@ import { resolve } from 'node:path'
 import { CH } from '../shared/protocol'
 import { installMenu } from './menu'
 import { isDirty, registerIpc, requestSaveFromRenderer } from './ipc'
+import { loadJars } from './settings'
+import { syncWatchers } from './watcher'
 import { createPreviewHost, disposePreviewHost } from './preview'
 import { installPreviewProtocol, registerPreviewScheme } from './protocol'
 import { createMainWindow } from './window'
@@ -128,6 +130,8 @@ if (!hasLock) {
 
     const fromArgv = fileFromArgv(process.argv)
     if (fromArgv && !pendingFile) pendingFile = fromArgv
+
+    syncWatchers(loadJars())
 
     createWindow()
 

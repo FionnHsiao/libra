@@ -236,6 +236,64 @@ try {
     savedJars.some((item) => normalizePath(item) === normalizePath(path.dirname(FIXTURE))),
     `${savedJars.length} 个：${savedJars.join(' | ').slice(0, 80)}`
   )
+
+  // ---- 右键重命名 ----
+  // 先把 another.html 打开成标签页，才能验证标签页也跟着改名
+  await shell.evaluate(
+    `[...document.querySelectorAll('.panel-left .tree-row')].find((el) => el.textContent.trim() === 'another.html').click()`
+  )
+  await sleep(1400)
+
+  await shell.evaluate(`(() => {
+    const row = [...document.querySelectorAll('.panel-left .tree-row')].find((el) => el.textContent.trim() === 'another.html')
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 160, clientY: 260 }))
+  })()`)
+  await sleep(300)
+  const menuItems = JSON.parse(
+    await shell.evaluate(`JSON.stringify([...document.querySelectorAll('.context-menu .menu-item')].map((el) => el.textContent.trim()))`)
+  )
+  check('右键文件出现菜单', menuItems.some((item) => item.includes('重命名')), menuItems.join(' / '))
+
+  await shell.evaluate(
+    `[...document.querySelectorAll('.context-menu .menu-item')].find((el) => el.textContent.includes('重命名')).click()`
+  )
+  await sleep(300)
+  const renameInputs = await shell.evaluate(`document.querySelectorAll('.rename-input').length`)
+  check('重命名进入行内输入', renameInputs === 1, `${renameInputs} 个输入框`)
+
+  await shell.evaluate(`(() => {
+    const input = document.querySelector('.rename-input')
+    input.value = 'another-renamed.html'
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+  })()`)
+  await sleep(1100)
+
+  const renamed = JSON.parse(
+    await shell.evaluate(`JSON.stringify({
+      tabs: [...document.querySelectorAll('.tab .tab-name')].map((el) => el.textContent),
+      rows: [...document.querySelectorAll('.panel-left .tree-row')].map((el) => el.textContent.trim())
+    })`)
+  )
+  check(
+    '重命名后标签页与文件树同步',
+    renamed.tabs.includes('another-renamed.html') && renamed.rows.includes('another-renamed.html'),
+    `标签页 ${renamed.tabs.join(', ')}`
+  )
+
+  const renamedPath = path.join(path.dirname(FIXTURE), 'another-renamed.html')
+  await shell.evaluate(`window.libra.renamePath(${JSON.stringify(renamedPath)}, 'another.html')`)
+  await sleep(800)
+
+  // ---- 磁盘变化自动刷新 ----
+  const probe = path.join(path.dirname(FIXTURE), 'watcher-probe.html')
+  fs.writeFileSync(probe, '<!doctype html><title>probe</title><h1>probe</h1>', 'utf8')
+  await sleep(1700)
+  const rowsAfterProbe = JSON.parse(
+    await shell.evaluate(`JSON.stringify([...document.querySelectorAll('.panel-left .tree-row')].map((el) => el.textContent.trim()))`)
+  )
+  check('磁盘新增文件自动出现在树里', rowsAfterProbe.includes('watcher-probe.html'), `${rowsAfterProbe.length} 行`)
+  fs.unlinkSync(probe)
+  await sleep(600)
 } finally {
   preview?.close()
   shell?.close()
