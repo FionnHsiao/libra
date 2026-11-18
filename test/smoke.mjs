@@ -8,13 +8,14 @@ const PROJECT = 'E:/Libra/libra'
 const FIXTURE = `${PROJECT}/test/fixtures/sample-gbk.html`
 const LONG = `${PROJECT}/test/fixtures/another.html`
 const PORT = 9333
+const INSPECT = 9229
 const PROFILE = path.join(os.tmpdir(), 'libra-test-profile')
 
 const hash = () => createHash('sha256').update(fs.readFileSync(FIXTURE)).digest('hex')
 const before = hash()
 
 const { default: electronPath } = await import('electron')
-const child = spawn(electronPath, ['.', FIXTURE, `--remote-debugging-port=${PORT}`, `--user-data-dir=${PROFILE}`], {
+const child = spawn(electronPath, ['.', FIXTURE, `--remote-debugging-port=${PORT}`, `--inspect=${INSPECT}`, `--user-data-dir=${PROFILE}`], {
   cwd: PROJECT,
   stdio: ['ignore', 'pipe', 'pipe']
 })
@@ -61,7 +62,7 @@ async function attach(webSocketDebuggerUrl) {
         else resolve(msg.result.result.value)
       }
       ws.addEventListener('message', onMessage)
-      ws.send(JSON.stringify({ id, method: 'Runtime.evaluate', params: { expression, awaitPromise: true, returnByValue: true } }))
+      ws.send(JSON.stringify({ id, method: 'Runtime.evaluate', params: { expression, awaitPromise: true, returnByValue: true, includeCommandLineAPI: true } }))
     })
   return { evaluate, close: () => ws.close() }
 }
@@ -71,11 +72,31 @@ const check = (name, pass, detail) => results.push([name, pass, detail])
 
 let shell
 let preview
+let mainProc
 try {
   const targets = await listTargets()
-  const mainTarget = targets.find((t) => t.type === 'page' && !t.url.startsWith('libra-file://'))
+  const mainTarget = targets.find((t) => t.type === 'page' && (t.url.startsWith('file://') || t.url.startsWith('http://localhost')))
   shell = await attach(mainTarget.webSocketDebuggerUrl)
   await sleep(1900)
+
+  mainProc = null
+  for (let i = 0; i < 40 && !mainProc; i += 1) {
+    try {
+      const list = await (await fetch(`http://127.0.0.1:${INSPECT}/json/list`)).json()
+      const nodeTarget = list.find((t) => t.type === 'node') ?? list[0]
+      if (nodeTarget?.webSocketDebuggerUrl) mainProc = await attach(nodeTarget.webSocketDebuggerUrl)
+    } catch {
+      await sleep(300)
+    }
+  }
+
+  const menuClick = `(() => {
+    const m = require('electron').Menu.getApplicationMenu().getMenuItemById('sidebar-toggle')
+    m.click()
+    return m.checked
+  })()`
+  const menuChecked = () =>
+    mainProc.evaluate(`String(require('electron').Menu.getApplicationMenu().getMenuItemById('sidebar-toggle').checked)`)
 
   const ui = JSON.parse(
     await shell.evaluate(`JSON.stringify({
@@ -133,6 +154,20 @@ try {
   const scrollAfter = await preview.evaluate('window.scrollY')
   check('点目录跳到文档对应位置', scrollAfter > scrollBefore + 100, `scrollY ${scrollBefore} -> ${scrollAfter}`)
 
+  await mainProc.evaluate(menuClick)
+  await sleep(600)
+  const hiddenByMenu = await shell.evaluate(`document.querySelectorAll('.sidebar').length`)
+  const checkedHidden = await menuChecked()
+  await mainProc.evaluate(menuClick)
+  await sleep(600)
+  const shownByMenu = await shell.evaluate(`document.querySelectorAll('.sidebar').length`)
+  const checkedShown = await menuChecked()
+  check(
+    '菜单项切换侧边栏并同步勾选',
+    hiddenByMenu === 0 && checkedHidden === 'false' && shownByMenu === 1 && checkedShown === 'true',
+    `侧栏 ${hiddenByMenu}/${shownByMenu}，勾选 ${checkedHidden}/${checkedShown}`
+  )
+
   const doc = JSON.parse(
     await shell.evaluate(`(async () => {
       const d = await window.libra.read(${JSON.stringify(FIXTURE)})
@@ -167,6 +202,7 @@ try {
   check('恢复原文后字节完全一致', hash() === before, `sha=${hash().slice(0, 12)}`)
 } finally {
   preview?.close()
+  mainProc?.close()
   shell?.close()
   await stopApp(child)
   await sleep(500)

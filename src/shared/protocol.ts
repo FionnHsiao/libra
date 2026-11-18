@@ -1,5 +1,7 @@
 export type Eol = 'LF' | 'CRLF'
 
+export type ViewMode = 'read' | 'edit'
+
 export interface DocumentData {
   path: string
   text: string
@@ -54,7 +56,17 @@ export interface PreviewRect {
   height: number
 }
 
-export type CommandId = 'open' | 'save' | 'save-as' | 'toggle-mode' | 'toggle-sidebar'
+export type CommandId =
+  | 'open'
+  | 'save'
+  | 'save-as'
+  | 'toggle-mode'
+  | 'mode-read'
+  | 'mode-edit'
+  | 'toggle-sidebar'
+  | 'find'
+  | 'reveal'
+  | 'reload-preview'
 
 export interface CommandMessage {
   id: CommandId
@@ -72,6 +84,8 @@ export interface LibraApi {
   setPreviewBounds(rect: PreviewRect | null): void
   scrollPreviewTo(index: number): void
   setSidebarVisible(visible: boolean): void
+  setViewMode(mode: ViewMode): void
+  revealInFolder(path: string): void
   setDirty(dirty: boolean): void
   reportSave(ok: boolean): void
   ready(): void
@@ -103,6 +117,8 @@ export const CH = {
   previewOutline: 'libra:preview:outline',
   previewScrollTo: 'libra:preview:scroll-to',
   sidebarVisible: 'libra:sidebar:visible',
+  viewMode: 'libra:view:mode',
+  reveal: 'libra:file:reveal',
   command: 'libra:command',
   ready: 'libra:app:ready'
 } as const

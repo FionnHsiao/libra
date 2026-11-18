@@ -22,3 +22,5 @@ dist/
 # Local env
 .env
 .env.local
+# Local debug scripts
+test/dbg.mjs

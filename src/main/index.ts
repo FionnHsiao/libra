@@ -114,6 +114,13 @@ if (!hasLock) {
       app.setAppUserModelId('com.fionnhsiao.libra')
     }
 
+    app.setAboutPanelOptions({
+      applicationName: 'Libra',
+      applicationVersion: app.getVersion(),
+      version: app.getVersion(),
+      copyright: 'HTML 阅读器与轻编辑器'
+    })
+
     installSecurityPolicy()
     installPreviewProtocol()
     registerIpc()

@@ -1,11 +1,10 @@
 import type { EditorView } from '@codemirror/view'
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
-import type { DocumentData, FolderListing, OutlineItem, PreviewRect } from '../../shared/protocol'
+import { openSearchPanel } from '@codemirror/search'
+import type { DocumentData, FolderListing, OutlineItem, PreviewRect, ViewMode } from '../../shared/protocol'
 import { Editor } from './Editor'
 import { PreviewPane } from './PreviewPane'
 import { Sidebar } from './Sidebar'
-
-type Mode = 'read' | 'edit'
 
 interface Cursor {
   line: number
@@ -52,7 +51,7 @@ export function App(): ReactElement {
   const [doc, setDoc] = useState<DocumentData | null>(null)
   const [docKey, setDocKey] = useState(0)
   const [dirty, setDirty] = useState(false)
-  const [mode, setMode] = useState<Mode>('read')
+  const [mode, setMode] = useState<ViewMode>('read')
   const [cursor, setCursor] = useState<Cursor>({ line: 1, column: 1 })
   const [folder, setFolder] = useState<FolderListing | null>(null)
   const [outline, setOutline] = useState<OutlineItem[]>([])
@@ -185,9 +184,23 @@ export function App(): ReactElement {
     window.libra.scrollPreviewTo(index)
   }, [])
 
+  const openFind = useCallback(() => {
+    setMode('edit')
+    window.setTimeout(() => {
+      const view = viewRef.current
+      if (!view) return
+      view.focus()
+      openSearchPanel(view)
+    }, 80)
+  }, [])
+
   useEffect(() => {
     window.libra.setDirty(dirty)
   }, [dirty])
+
+  useEffect(() => {
+    window.libra.setViewMode(mode)
+  }, [mode])
 
   useEffect(() => {
     const name = doc ? baseName(doc.path) : '未打开文件'
@@ -216,6 +229,27 @@ export function App(): ReactElement {
         toggleSidebar()
         return
       }
+      if (message.id === 'mode-read') {
+        setMode('read')
+        return
+      }
+      if (message.id === 'mode-edit') {
+        setMode('edit')
+        return
+      }
+      if (message.id === 'find') {
+        openFind()
+        return
+      }
+      if (message.id === 'reveal') {
+        const current = docRef.current
+        if (current) window.libra.revealInFolder(current.path)
+        return
+      }
+      if (message.id === 'reload-preview') {
+        window.libra.reloadPreview()
+        return
+      }
       void saveDocument().then((ok) => window.libra.reportSave(ok))
     })
     const offOpened = window.libra.onFileOpened((path) => {
@@ -236,7 +270,7 @@ export function App(): ReactElement {
       offNavigate()
       offOutline()
     }
-  }, [openPath, openViaDialog, saveDocument, saveDocumentAs, toggleSidebar])
+  }, [openPath, openViaDialog, saveDocument, saveDocumentAs, toggleSidebar, openFind])
 
   useEffect(() => {
     const handleDragOver = (event: DragEvent): void => {

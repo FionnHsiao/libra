@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, ipcMain } from 'electron'
+import { BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { promises as fs } from 'node:fs'
 import { extname, isAbsolute, join, resolve } from 'node:path'
 import {
@@ -13,7 +13,7 @@ import {
   type SavePayload
 } from '../shared/protocol'
 import { readDocument, writeTextAtomic } from './files'
-import { setSidebarChecked } from './menu'
+import { setModeChecked, setSidebarChecked } from './menu'
 import { getPreviewHost } from './preview'
 
 const allowedExtensions = new Set<string>(ALLOWED_EXTENSIONS)
@@ -237,6 +237,18 @@ export function registerIpc(): void {
 
   ipcMain.on(CH.sidebarVisible, (_event, value: unknown) => {
     setSidebarChecked(value === true)
+  })
+
+  ipcMain.on(CH.viewMode, (_event, value: unknown) => {
+    if (value === 'read' || value === 'edit') setModeChecked(value)
+  })
+
+  ipcMain.on(CH.reveal, (_event, rawPath: unknown) => {
+    try {
+      shell.showItemInFolder(assertDocumentPath(rawPath))
+    } catch {
+      /* 没有打开的文件，忽略 */
+    }
   })
 
   ipcMain.on(CH.setDirty, (_event, value: unknown) => {

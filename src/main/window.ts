@@ -11,7 +11,6 @@ export function createMainWindow(): BrowserWindow {
     minHeight: 480,
     show: false,
     title: 'Libra',
-    autoHideMenuBar: true,
     backgroundColor: '#12141a',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),

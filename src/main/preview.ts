@@ -99,12 +99,10 @@ export class PreviewHost {
   scrollTo(index: number): void {
     const safe = Math.max(0, Math.min(99999, Math.floor(index)))
     void this.view.webContents
-      .executeJavaScript(
-        `(() => {
-          const node = document.querySelector('[data-libra-outline="${safe}"]')
-          if (node) node.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        })()`
-      )
+      .executeJavaScript(`(() => {
+        const node = document.querySelector('[data-libra-outline="${safe}"]')
+        if (node) node.scrollIntoView({ block: 'start' })
+      })()`, true)
       .catch(() => undefined)
   }
 
