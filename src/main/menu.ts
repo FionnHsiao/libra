@@ -1,15 +1,19 @@
 import { app, BrowserWindow, dialog, Menu, type Event as ElectronEvent, type MenuItemConstructorOptions, type Input } from 'electron'
 import { CH, type CommandId } from '../shared/protocol'
 
+const isMac = process.platform === 'darwin'
+const MOD = isMac ? 'Cmd' : 'Ctrl'
+const FULLSCREEN_KEYS = isMac ? 'Ctrl+Cmd+F' : 'F11'
+
 const SHORTCUTS_TEXT = [
-  '打开              Ctrl+O',
-  '关闭标签页         Ctrl+W',
-  '文件列表           Ctrl+B',
-  '大纲              Ctrl+Shift+B',
-  '放大 / 缩小        Ctrl+= / Ctrl+-',
-  '实际大小          Ctrl+0',
-  '刷新预览          Ctrl+R',
-  '全屏阅读          F11 / Esc 退出'
+  `打开              ${MOD}+O`,
+  `关闭标签页         ${MOD}+W`,
+  `文件列表           ${MOD}+B`,
+  `大纲              ${MOD}+Shift+B`,
+  `放大 / 缩小        ${MOD}= / ${MOD}+-`,
+  `实际大小          ${MOD}+0`,
+  `刷新预览          ${MOD}+R`,
+  `全屏阅读          ${FULLSCREEN_KEYS} / Esc 退出`
 ].join('\n')
 
 /** 没有原生菜单了：菜单由渲染进程自绘在标题栏里。 */
@@ -79,7 +83,8 @@ export function handleShortcutInput(event: ElectronEvent, input: Input, win: Bro
 
   const key = (input.key ?? '').toLowerCase()
 
-  if (key === 'f11') {
+  // F11（Windows）或 Ctrl+Cmd+F（macOS 的习惯键位）
+  if (key === 'f11' || (isMac && input.control && input.meta && key === 'f')) {
     event.preventDefault()
     send(win, 'toggle-immersive')
     return
@@ -91,7 +96,7 @@ export function handleShortcutInput(event: ElectronEvent, input: Input, win: Bro
     return
   }
 
-  const mod = process.platform === 'darwin' ? input.meta : input.control
+  const mod = isMac ? input.meta : input.control
   if (!mod || input.alt) return
 
   const shift = input.shift

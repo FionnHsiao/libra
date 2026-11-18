@@ -285,18 +285,15 @@ body.platform-mac .titlebar-left {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
+.tab-icon {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+
 .tab-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.tab-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #3a3a3f;
-  flex-shrink: 0;
 }
 
 .tab-close {
@@ -529,17 +526,6 @@ button.primary:hover:not(:disabled) {
   display: block;
 }
 
-.context-menu {
-  position: fixed;
-  z-index: 200;
-  min-width: 168px;
-  padding: 5px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #ffffff;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
-}
-
 .rename-input {
   flex: 1;
   min-width: 0;
@@ -565,6 +551,44 @@ button.primary:hover:not(:disabled) {
 .libra-mark {
   flex-shrink: 0;
   display: block;
+}
+
+/* 标题栏最左：返回上一个打开的文件 */
+.titlebar-back {
+  -webkit-app-region: no-drag;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  color: #3c3c40; /* 和菜单文字同色 */
+}
+
+.titlebar-back:disabled {
+  opacity: 0.26;
+  cursor: default;
+}
+
+/* 返回按钮右侧：折叠 / 展开目录（等于 视图 → 文件列表，Ctrl+B） */
+.titlebar-toggle {
+  -webkit-app-region: no-drag;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  /* 左边缘落在目录栏左边界上（rail 52 + workspace 左边距 4） */
+  margin-left: 16px;
+  margin-right: 6px;
+  color: #3c3c40; /* 和右侧菜单文字同色 */
+}
+
+.titlebar-toggle:not(.on) {
+  color: var(--muted);
+}
+
+.titlebar-toggle.on {
+  background: transparent;
+}
+
+.titlebar-toggle.on:hover:not(:disabled) {
+  background: var(--hover);
 }
 
 /* ---- 大纲 ---- */
@@ -642,16 +666,21 @@ button.primary:hover:not(:disabled) {
 /* ---- 拖动分隔条 ---- */
 
 .resizer {
-  flex: 0 0 5px;
+  flex: 0 0 0;
+  width: 0;
   cursor: col-resize;
   position: relative;
   background: transparent;
 }
 
+/* 不占布局宽度：热区靠伪元素往两边各扩 4px，视觉上两条栏就是贴着的 */
 .resizer::after {
   content: '';
   position: absolute;
-  inset: 0 2px;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  right: -4px;
   border-radius: 2px;
   background: transparent;
   transition: background 0.15s ease;
@@ -703,16 +732,20 @@ body.resizing {
 }
 
 .empty-mark {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
   display: grid;
   place-items: center;
-  font-size: 21px;
-  font-weight: 700;
-  color: #ffffff;
-  background: linear-gradient(140deg, #55555c, #2a2a2e);
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+  filter: drop-shadow(0 9px 18px rgba(10, 12, 26, 0.28));
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.empty-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .empty h1 {
@@ -724,10 +757,11 @@ body.resizing {
 
 .empty p {
   margin: 0 0 14px;
-  max-width: 380px;
+  max-width: 432px;
   font-size: 12.5px;
   line-height: 1.8;
   color: var(--muted);
+  text-wrap: pretty;
 }
 /* ---- 全屏阅读：只剩渲染出来的网页 ---- */
 

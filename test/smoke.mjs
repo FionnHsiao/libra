@@ -70,7 +70,7 @@ async function attach(webSocketDebuggerUrl) {
       ws.addEventListener('message', onMessage)
       ws.send(JSON.stringify({ id, method: 'Runtime.evaluate', params: { expression, awaitPromise: true, returnByValue: true } }))
     })
-  return { evaluate, close: () => ws.close() }
+  return { evaluate, bringToFront: () => ws.send(JSON.stringify({ id: 999999, method: 'Page.bringToFront' })), close: () => ws.close() }
 }
 
 const results = []
@@ -155,6 +155,7 @@ try {
   const targets = await listTargets()
   const mainTarget = targets.find((t) => t.type === 'page' && (t.url.startsWith('file://') || t.url.startsWith('http://localhost')))
   shell = await attach(mainTarget.webSocketDebuggerUrl)
+  await shell.bringToFront()
   cursorAtStart = await readCursor()
   await sleep(2600)
 
@@ -179,7 +180,29 @@ try {
   check('文件树上方是星星罐标题', ui.jarTitle === '星星罐', ui.jarTitle)
 
   const jarButtons = await shell.evaluate(`document.querySelectorAll('.jar-actions button').length`)
-  check('星星罐标题有五个操作按钮', jarButtons === 5, `${jarButtons} 个`)
+  check('星星罐标题有四个操作按钮', jarButtons === 4, `${jarButtons} 个`)
+
+  const titlebarChrome = JSON.parse(
+    await shell.evaluate(`(() => {
+      const back = document.querySelector('.titlebar-back')
+      const toggle = document.querySelector('.titlebar-toggle')
+      const panel = document.querySelector('.panel-left')
+      if (!back || !toggle) return JSON.stringify({ missing: true })
+      const b = back.getBoundingClientRect()
+      const t = toggle.getBoundingClientRect()
+      const p = panel ? panel.getBoundingClientRect() : null
+      return JSON.stringify({
+        backLeft: Math.round(b.left),
+        backBeforeToggle: b.right <= t.left,
+        toggleAligned: p ? Math.abs(t.left - p.left) <= 1 : false
+      })
+    })()`)
+  )
+  check(
+    '返回按钮在标题栏最左，折叠按钮与目录栏对齐',
+    !titlebarChrome.missing && titlebarChrome.backLeft === 8 && titlebarChrome.backBeforeToggle && titlebarChrome.toggleAligned,
+    `返回 x=${titlebarChrome.backLeft}，对齐=${titlebarChrome.toggleAligned}`
+  )
 
   await parkOn(`document.querySelector('.jar-actions button')`)
   await shell.evaluate(`document.querySelector('.jar-actions button').click()`)
@@ -242,7 +265,7 @@ try {
   check('左侧图标栏只保留主页按钮', ui.railButtons === 1, `${ui.railButtons} 个按钮`)
 
   // 隐藏文件列表后点主页，应重新显示
-  await shell.evaluate(`document.querySelector('.jar-actions button:nth-of-type(5)').click()`)
+  await shell.evaluate(`document.querySelector('.titlebar-toggle').click()`)
   await sleep(400)
   const hiddenByHeader = await shell.evaluate(`document.querySelectorAll('.panel-left').length`)
   await shell.evaluate(`document.querySelector('.rail-btn').click()`)
@@ -312,6 +335,25 @@ try {
   check('打开的文件成为新的标签页', afterSwitch.tabs === 2, afterSwitch.tabNames.join(' | '))
   check('切换文件后目录自动重建', afterSwitch.activeName === 'another.html' && afterSwitch.levels.length === 3, `层级 ${afterSwitch.levels.join('/')}`)
 
+  // 返回按钮：应该回到上一个打开的文件
+  const backEnabled = await shell.evaluate(`!document.querySelector('.titlebar-back').disabled`)
+  await shell.evaluate(`document.querySelector('.titlebar-back').click()`)
+  await sleep(1500)
+  const afterBack = JSON.parse(
+    await shell.evaluate(`JSON.stringify({
+      activeName: document.querySelector('.tab.active .tab-name')?.textContent ?? '',
+      backDisabled: document.querySelector('.titlebar-back').disabled
+    })`)
+  )
+  check(
+    '返回按钮回到上一个打开的文件',
+    backEnabled === true && afterBack.activeName === 'sample-gbk.html' && afterBack.backDisabled === true,
+    `返回后 ${afterBack.activeName}，按钮 ${afterBack.backDisabled ? '已灰掉' : '仍可用'}`
+  )
+  // 复原现场：后面的用例都按 another.html 来的
+  await shell.evaluate(`[...document.querySelectorAll('.panel-left .tree-row')].find((el) => el.textContent.trim() === 'another.html').click()`)
+  await sleep(1600)
+
   preview.close()
   preview = await attach((await listTargets()).find((t) => t.url.startsWith('libra-file://')).webSocketDebuggerUrl)
   const scrollBefore = await preview.evaluate('window.scrollY')
@@ -339,14 +381,6 @@ try {
   await sleep(500)
   const restoredByMenu = await shell.evaluate(`document.querySelectorAll('.panel-left').length`)
   check('菜单项切换文件列表并同步勾选', hiddenByMenu === 0 && checkedByMenu === '' && restoredByMenu === 1, `隐藏 ${hiddenByMenu}，勾选 "${checkedByMenu}"，恢复 ${restoredByMenu}`)
-
-  const doc = JSON.parse(
-    await shell.evaluate(`(async () => {
-      const d = await window.libra.read(${JSON.stringify(FIXTURE)})
-      return JSON.stringify({ encoding: d.encoding, eol: d.eol, size: d.size, text: d.text })
-    })()`)
-  )
-  check('GBK / CRLF 识别正确', doc.encoding === 'gb18030' && doc.eol === 'CRLF' && doc.size === 197, `${doc.encoding} / ${doc.eol} / ${doc.size}B`)
 
   await shell.evaluate(`document.querySelector('.tab.active .tab-close').click()`)
   await sleep(700)
@@ -482,8 +516,12 @@ try {
     await shell.evaluate(`JSON.stringify([...document.querySelectorAll('.tab-actions .icon-btn')].map((b) => b.className))`)
   )
   const hostBefore = JSON.parse(await hostRect())
+  await shell.bringToFront()
+  await sleep(400)
   await shell.evaluate(`document.querySelector('.fullscreen-toggle').click()`)
   await sleep(1900)
+  // 全屏后标题栏消失，靠预览页里的提示告诉用户怎么退出去
+  const hintVisible = await preview.evaluate(`!!document.getElementById('__libra_hint__')`)
   const immersive = JSON.parse(
     await shell.evaluate(`(() => {
       const hidden = (s) => { const el = document.querySelector(s); return !el || el.getBoundingClientRect().height === 0 }
@@ -512,8 +550,13 @@ try {
     `网页 ${immersive.w}x${immersive.h}，窗口 ${immersive.win.join('x')}`
   )
 
+  check('进入全屏后有「按 Esc 退出」提示', hintVisible === true, `提示 ${hintVisible}`)
+
   await shell.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
   await sleep(1900)
+  await shell.bringToFront()
+  await sleep(1200)
+  const previewWidthAfter = await preview.evaluate(`window.innerWidth`)
   const restored = JSON.parse(
     await shell.evaluate(`(() => {
       const h = document.querySelector('.preview-host').getBoundingClientRect()
@@ -532,6 +575,12 @@ try {
       Math.abs(restored.x - hostBefore.x) <= 2 &&
       Math.abs(restored.w - hostBefore.w) <= 2,
     `网页宽 ${restored.w}，之前 ${hostBefore.w}`
+  )
+  // 原生预览视图是独立的，DOM 还原不代表它还原，这里直接量预览页自己的宽度
+  check(
+    '退出全屏后预览视图缩回原来的位置',
+    Math.abs(previewWidthAfter - restored.w) <= 2,
+    `预览宽 ${previewWidthAfter}，网页区 ${restored.w}`
   )
 
 } finally {

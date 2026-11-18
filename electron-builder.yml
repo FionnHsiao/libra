@@ -1,0 +1,37 @@
+appId: com.fionnhsiao.libra
+productName: Libra
+copyright: Copyright © 2026 FionnHsiao
+directories:
+  output: dist
+  buildResources: build
+files:
+  - out/**
+  - resources/**
+  - package.json
+asar: true
+extraMetadata:
+  productName: Libra
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+  artifactName: Libra-${version}-Setup.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Libra
+  artifactName: Libra-${version}-Setup.${ext}
+mac:
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+  icon: resources/icons/icon-1024.png
+  category: public.app-category.productivity
+  artifactName: Libra-${version}-${arch}.${ext}
+  darkModeSupport: false

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState, type ReactElement } from 'react'
 import type { JarEntry, OutlineItem, TreeEntry } from '../../shared/protocol'
-import { FilesIcon } from './MenuBar'
+import { HtmlFileIcon } from './MenuBar'
 import { openOverlayMenu } from './overlayMenu'
 import { baseName, dirName } from './paths'
 
@@ -31,12 +31,7 @@ function FolderIcon({ open }: { open: boolean }): ReactElement {
 }
 
 function FileIcon(): ReactElement {
-  return (
-    <svg className="tree-icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-      <path d="M4 2.6h5l3 3v7.8H4z" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-      <path d="M9 2.6v3h3" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
-    </svg>
-  )
+  return <HtmlFileIcon className="tree-icon" size={14} />
 }
 
 function PlusIcon(): ReactElement {
@@ -224,7 +219,6 @@ interface FileTreeProps {
   onAddDir: () => void
   onAddFile: () => void
   onRemoveEntry: (path: string) => void
-  onHide: () => void
   onRenamed: (from: string, to: string) => void
   onError: (message: string) => void
 }
@@ -232,7 +226,7 @@ interface FileTreeProps {
 const EXPAND_BUDGET = 200
 
 export function FileTree(props: FileTreeProps): ReactElement {
-  const { width, entries, activePath, onOpenFile, onAddDir, onAddFile, onRemoveEntry, onHide, onRenamed, onError } = props
+  const { width, entries, activePath, onOpenFile, onAddDir, onAddFile, onRemoveEntry, onRenamed, onError } = props
   const roots = entries.filter((entry) => entry.kind === 'dir').map((entry) => entry.path)
 
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(roots))
@@ -398,15 +392,12 @@ export function FileTree(props: FileTreeProps): ReactElement {
           <button type="button" title="全部展开" aria-label="全部展开" onClick={() => void expandAll()}>
             <ExpandIcon />
           </button>
-          <button type="button" title="隐藏文件列表" aria-label="隐藏文件列表" onClick={onHide}>
-            <FilesIcon active={false} />
-          </button>
         </span>
       </div>
 
       <div className="tree-list">
         {entries.length === 0 ? (
-          <p className="jar-empty">还没有内容。点上面的 + 添加文件夹，或者按 Ctrl+O 打开单个文件。</p>
+          <p className="jar-empty">还没有内容。点上面的 + 添加文件夹或文件，也可以按 Ctrl+O 打开单个文件。</p>
         ) : (
           entries.map((entry) =>
             entry.kind === 'dir' ? (

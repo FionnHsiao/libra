@@ -101,7 +101,7 @@ if (!hasLock) {
       applicationName: 'Libra',
       applicationVersion: app.getVersion(),
       version: app.getVersion(),
-      copyright: 'HTML 阅读器与轻编辑器'
+      copyright: '只读 HTML 阅读器'
     })
 
     installSecurityPolicy()

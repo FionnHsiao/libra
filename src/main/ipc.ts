@@ -7,11 +7,8 @@ import {
   HTML_EXTENSIONS,
   type DirListing,
   type OverlayOpenPayload,
-  type FileEntry,
-  type FolderListing,
-  type PreviewRect,
+  type PreviewRect
 } from '../shared/protocol'
-import { readDocument } from './files'
 import { loadEntries, saveEntries } from './settings'
 import { syncWatchers } from './watcher'
 import { adjustZoom, showShortcutsDialog } from './menu'
@@ -20,8 +17,6 @@ import { getPreviewHost } from './preview'
 
 const allowedExtensions = new Set<string>(ALLOWED_EXTENSIONS)
 const htmlExtensions = new Set<string>(HTML_EXTENSIONS)
-const MAX_LISTED_FILES = 500
-
 
 export function assertDocumentPath(value: unknown): string {
   if (typeof value !== 'string' || value.length === 0 || value.length > 4096) {
@@ -93,8 +88,8 @@ const openFilters = [
 ]
 
 export function registerIpc(): void {
-  ipcMain.handle(CH.read, async (_event, rawPath: unknown) => {
-    return readDocument(assertDocumentPath(rawPath))
+  ipcMain.handle(CH.checkPath, async (_event, rawPath: unknown) => {
+    assertDocumentPath(rawPath)
   })
 
   ipcMain.handle(CH.openDialog, async (event) => {
@@ -102,7 +97,7 @@ export function registerIpc(): void {
     const options = { title: '打开文档', properties: ['openFile' as const], filters: openFilters }
     const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
     if (result.canceled || result.filePaths.length === 0) return null
-    return readDocument(assertDocumentPath(result.filePaths[0]))
+    return assertDocumentPath(result.filePaths[0])
   })
 
   ipcMain.handle(CH.readDir, async (_event, rawDir: unknown): Promise<DirListing> => {
@@ -177,45 +172,6 @@ export function registerIpc(): void {
     return resolve(result.filePaths[0])
   })
 
-  ipcMain.handle(CH.listFolder, async (_event, rawDir: unknown): Promise<FolderListing> => {
-    const dir = assertDirectoryPath(rawDir)
-    const dirents = await fs.readdir(dir, { withFileTypes: true })
-
-    const candidates = dirents
-      .filter((entry) => entry.isFile() && htmlExtensions.has(extname(entry.name).toLowerCase()))
-      .slice(0, MAX_LISTED_FILES)
-
-    const files: FileEntry[] = await Promise.all(
-      candidates.map(async (entry) => {
-        const fullPath = join(dir, entry.name)
-        let size = 0
-        try {
-          size = (await fs.stat(fullPath)).size
-        } catch {
-          size = 0
-        }
-        return { name: entry.name, path: fullPath, size }
-      })
-    )
-
-    files.sort((left, right) => left.name.localeCompare(right.name, 'zh-CN'))
-    return { dir, files }
-  })
-
-  ipcMain.handle(CH.confirmDiscard, async (event) => {
-    const win = BrowserWindow.fromWebContents(event.sender)
-    const options = {
-      type: 'question' as const,
-      buttons: ['放弃修改', '取消'],
-      defaultId: 1,
-      cancelId: 1,
-      message: '有未保存的修改',
-      detail: '继续操作会丢弃这些修改。'
-    }
-    const result = win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options)
-    return result.response === 0
-  })
-
   ipcMain.handle(CH.previewLoad, async (event, rawPath: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return
@@ -268,6 +224,13 @@ export function registerIpc(): void {
     getPreviewHost(win.webContents.id)?.scrollTo(rawIndex)
   })
 
+  ipcMain.on(CH.previewHint, (event, rawText: unknown) => {
+    if (typeof rawText !== 'string') return
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    getPreviewHost(win.webContents.id)?.flashHint(rawText)
+  })
+
   // 全屏阅读：窗口进全屏，界面上的栏全部由渲染进程隐藏。
   // 记住进全屏之前的状态，退出时还原，避免把用户原本的全屏状态改掉。
   const immersiveByWindow = new Map<number, boolean>()
@@ -284,6 +247,16 @@ export function registerIpc(): void {
     } else {
       win.setFullScreen(fullscreenBefore.get(win.id) ?? false)
       win.webContents.focus()
+
+      // 系统全屏的进出是异步的，而预览是原生视图：这段过渡里渲染进程可能一次
+      // ResizeObserver / resize 回调都收不到，原生视图就会停在旧位置。
+      // 过渡结束后主动让渲染进程重新上报一次尺寸。
+      const refreshBounds = (): void => {
+        if (win.isDestroyed()) return
+        win.webContents.send(CH.command, { id: 'refresh-preview-bounds' })
+      }
+      win.once('leave-full-screen', refreshBounds)
+      setTimeout(refreshBounds, 280)
     }
   })
 
@@ -311,19 +284,7 @@ export function registerIpc(): void {
         app.showAboutPanel()
         break
       case 'homepage':
-        void shell.openExternal('https://github.com/FionnHsiao/libra')
-        break
-      case 'cut':
-        win.webContents.cut()
-        break
-      case 'copy':
-        win.webContents.copy()
-        break
-      case 'paste':
-        win.webContents.paste()
-        break
-      case 'select-all':
-        win.webContents.selectAll()
+        void shell.openExternal('https://github.com/HsiaoBob/Libra')
         break
       default:
         break

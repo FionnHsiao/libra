@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="sky" gradientUnits="userSpaceOnUse" x1="140" y1="40" x2="820" y2="1010">
+      <stop offset="0" stop-color="#080a16"/>
+      <stop offset="34%" stop-color="#0b1128"/>
+      <stop offset="68%" stop-color="#090d1d"/>
+      <stop offset="100%" stop-color="#05060c"/>
+    </linearGradient>
+    <radialGradient id="nebBlue" gradientUnits="userSpaceOnUse" cx="210" cy="880" r="520">
+      <stop offset="0" stop-color="#3c6cb8" stop-opacity="0.42"/>
+      <stop offset="55%" stop-color="#254a86" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#254a86" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="nebViolet" gradientUnits="userSpaceOnUse" cx="880" cy="880" r="470">
+      <stop offset="0" stop-color="#5c3a86" stop-opacity="0.38"/>
+      <stop offset="58%" stop-color="#3a2358" stop-opacity="0.2"/>
+      <stop offset="100%" stop-color="#3a2358" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="nebIndigo" gradientUnits="userSpaceOnUse" cx="820" cy="230" r="430">
+      <stop offset="0" stop-color="#2b3d7d" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="#33488f" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="nebCore" gradientUnits="userSpaceOnUse" cx="470" cy="470" r="380">
+      <stop offset="0" stop-color="#16224a" stop-opacity="0.30"/>
+      <stop offset="100%" stop-color="#1b2a55" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="band" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#dbe8ff" stop-opacity="0.17"/>
+      <stop offset="42%" stop-color="#9dbcff" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#9dbcff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="vig" gradientUnits="userSpaceOnUse" cx="512" cy="512" r="620">
+      <stop offset="48%" stop-color="#000000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000208" stop-opacity="0.66"/>
+    </radialGradient>
+  </defs>
+  <defs><clipPath id="frame" clipPathUnits="userSpaceOnUse"><rect width="1024" height="1024" rx="228.0" fill="#000"/></clipPath></defs>
+  <g clip-path="url(#frame)">
+    <rect width="1024" height="1024" fill="url(#sky)"/>
+    <rect width="1024" height="1024" fill="url(#nebBlue)"/>
+    <rect width="1024" height="1024" fill="url(#nebViolet)"/>
+    <circle cx="690.4" cy="216.6" r="1.60" fill="#ffffff" opacity="0.64"/>
+    <circle cx="546.0" cy="315.3" r="1.60" fill="#ffffff" opacity="0.67"/>
+    <circle cx="740.2" cy="254.9" r="2.00" fill="#ffeacb" opacity="0.84"/>
+    <circle cx="665.0" cy="687.6" r="2.00" fill="#d6e5ff" opacity="0.86"/>
+    <circle cx="110.4" cy="729.0" r="2.60" fill="#ffffff" opacity="0.78"/>
+    <circle cx="852.3" cy="278.2" r="2.00" fill="#ffffff" opacity="0.95"/>
+    <circle cx="752.9" cy="908.4" r="2.60" fill="#ffffff" opacity="0.78"/>
+    <circle cx="622.3" cy="954.4" r="2.00" fill="#ffffff" opacity="0.60"/>
+    <circle cx="194.2" cy="320.3" r="2.00" fill="#ffeacb" opacity="0.75"/>
+    <circle cx="461.2" cy="641.1" r="1.60" fill="#ffeacb" opacity="0.93"/>
+    <circle cx="445.7" cy="759.9" r="2.00" fill="#ffeacb" opacity="0.68"/>
+    <circle cx="114.0" cy="461.5" r="2.60" fill="#ffeacb" opacity="0.59"/>
+    <circle cx="610.2" cy="270.8" r="2.60" fill="#ffffff" opacity="0.65"/>
+    <circle cx="833.3" cy="535.2" r="1.60" fill="#ffffff" opacity="0.70"/>
+    <circle cx="223.5" cy="894.2" r="2.00" fill="#ffffff" opacity="0.85"/>
+    <circle cx="893.7" cy="664.7" r="2.00" fill="#ffffff" opacity="0.80"/>
+    <circle cx="549.6" cy="354.5" r="2.60" fill="#ffffff" opacity="0.82"/>
+    <circle cx="318.7" cy="875.5" r="1.60" fill="#ffffff" opacity="0.59"/>
+    <circle cx="675.2" cy="930.4" r="1.60" fill="#ffffff" opacity="0.90"/>
+    <rect width="1024" height="1024" fill="url(#vig)"/>
+  </g>
+  <mask id="tinyMask" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+    <rect width="1024" height="1024" fill="#000"/>
+    <g transform="translate(-12.48,69.24) scale(2.06897)">
+      <g clip-path="url(#domeClipT)"><circle cx="253.5" cy="168.0" r="112.0" fill="#fff"/></g>
+      <rect x="108.5" y="198.0" width="290.0" height="64.0" fill="#fff"/>
+      <rect x="108.5" y="308.0" width="290.0" height="64.0" fill="#fff"/>
+      <circle cx="253.5" cy="168.0" r="44.0" fill="#000"/>
+      <rect x="233.5" y="168.0" width="40.0" height="94.0" fill="#000"/>
+    </g>
+  </mask>
+  <clipPath id="domeClipT" clipPathUnits="userSpaceOnUse">
+    <rect x="-600" y="-600" width="2400" height="860.0"/>
+  </clipPath>
+  <rect width="1024" height="1024" fill="#ffffff" mask="url(#tinyMask)"/>
+</svg>

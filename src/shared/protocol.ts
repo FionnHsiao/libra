@@ -1,7 +1,5 @@
 export type Eol = 'LF' | 'CRLF'
 
-export type ViewMode = 'read' | 'edit'
-
 export interface OverlayItem {
   id: string
   label?: string
@@ -33,21 +31,6 @@ export interface JarEntry {
   path: string
 }
 
-export interface DocumentData {
-  path: string
-  text: string
-  encoding: string
-  bom: boolean
-  eol: Eol
-  size: number
-}
-
-export interface FileEntry {
-  name: string
-  path: string
-  size: number
-}
-
 export interface TreeEntry {
   name: string
   path: string
@@ -57,11 +40,6 @@ export interface TreeEntry {
 export interface DirListing {
   dir: string
   entries: TreeEntry[]
-}
-
-export interface FolderListing {
-  dir: string
-  files: FileEntry[]
 }
 
 export interface OutlineItem {
@@ -86,6 +64,7 @@ export type CommandId =
   | 'reload-preview'
   | 'toggle-immersive'
   | 'exit-immersive'
+  | 'refresh-preview-bounds'
 
 export type AppAction =
   | 'quit'
@@ -95,10 +74,6 @@ export type AppAction =
   | 'shortcuts'
   | 'about'
   | 'homepage'
-  | 'cut'
-  | 'copy'
-  | 'paste'
-  | 'select-all'
 
 export interface CommandMessage {
   id: CommandId
@@ -106,16 +81,14 @@ export interface CommandMessage {
 
 export interface LibraApi {
   platform: string
-  openDialog(): Promise<DocumentData | null>
-  read(path: string): Promise<DocumentData>
-  listFolder(dir: string): Promise<FolderListing>
+  openDialog(): Promise<string | null>
+  checkPath(path: string): Promise<void>
   pickFolder(): Promise<string | null>
   pickFile(): Promise<string | null>
   renamePath(path: string, name: string): Promise<string>
   getEntries(): Promise<JarEntry[]>
   setEntries(entries: JarEntry[]): void
   readDir(dir: string): Promise<DirListing>
-  confirmDiscard(): Promise<boolean>
   loadPreview(path: string): Promise<void>
   reloadPreview(): void
   setPreviewBounds(rect: PreviewRect | null): void
@@ -125,6 +98,7 @@ export interface LibraApi {
   onOverlaySelect(callback: (id: string) => void): () => void
   onOverlayDismiss(callback: () => void): () => void
   scrollPreviewTo(index: number): void
+  showPreviewHint(text: string): void
   revealInFolder(path: string): void
   appAction(action: AppAction): void
   ready(): void
@@ -142,8 +116,7 @@ export const HTML_EXTENSIONS = ['.html', '.htm', '.xhtml'] as const
 
 export const CH = {
   openDialog: 'libra:file:open-dialog',
-  read: 'libra:file:read',
-  listFolder: 'libra:folder:list',
+  checkPath: 'libra:file:check',
   pickFolder: 'libra:folder:pick',
   pickFile: 'libra:file:pick',
   renamePath: 'libra:file:rename',
@@ -151,7 +124,6 @@ export const CH = {
   entriesGet: 'libra:entries:get',
   entriesSet: 'libra:entries:set',
   readDir: 'libra:folder:read-dir',
-  confirmDiscard: 'libra:editor:confirm-discard',
   fileOpened: 'libra:file:opened',
   previewLoad: 'libra:preview:load',
   previewReload: 'libra:preview:reload',
@@ -168,10 +140,9 @@ export const CH = {
   previewNavigate: 'libra:preview:navigate',
   previewOutline: 'libra:preview:outline',
   previewScrollTo: 'libra:preview:scroll-to',
+  previewHint: 'libra:preview:hint',
   reveal: 'libra:file:reveal',
   appAction: 'libra:app:action',
   command: 'libra:command',
   ready: 'libra:app:ready'
 } as const
-
-export const MAX_DOCUMENT_BYTES = 512 * 1024 * 1024

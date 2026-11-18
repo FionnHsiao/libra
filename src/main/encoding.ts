@@ -29,12 +29,6 @@ export function detectEol(text: string): Eol {
   return crlf > lf ? 'CRLF' : 'LF'
 }
 
-/** Convert every line ending in the text to the requested style. */
-export function normalizeEol(text: string, eol: Eol): string {
-  const unified = text.replace(/\r\n|\r|\n/g, '\n')
-  return eol === 'CRLF' ? unified.replace(/\n/g, '\r\n') : unified
-}
-
 const ALIASES: Record<string, string> = {
   'utf-8': 'utf8',
   utf8: 'utf8',
@@ -74,12 +68,6 @@ function decodeStrictUtf8(buffer: Buffer): string | null {
   }
 }
 
-const BOMS: Record<string, Buffer> = {
-  utf8: Buffer.from([0xef, 0xbb, 0xbf]),
-  utf16le: Buffer.from([0xff, 0xfe]),
-  utf16be: Buffer.from([0xfe, 0xff])
-}
-
 export function decodeBuffer(buffer: Buffer): DecodedDocument {
   if (buffer.length >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
     const text = buffer.subarray(3).toString('utf8')
@@ -102,12 +90,4 @@ export function decodeBuffer(buffer: Buffer): DecodedDocument {
   const encoding = normalizeEncoding(detectCharset ? detectCharset(buffer) : null)
   const text = iconv.decode(buffer, encoding)
   return { text, encoding, bom: false, eol: detectEol(text) }
-}
-
-export function encodeBuffer(text: string, encoding: string, bom: boolean, eol: Eol): Buffer {
-  const normalized = normalizeEol(text, eol)
-  const body = encoding === 'utf8' ? Buffer.from(normalized, 'utf8') : iconv.encode(normalized, encoding)
-  if (!bom) return body
-  const prefix = BOMS[encoding]
-  return prefix ? Buffer.concat([prefix, body]) : body
 }

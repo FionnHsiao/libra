@@ -2,6 +2,9 @@ import { createRoot } from 'react-dom/client'
 import { App } from './App'
 import './styles.css'
 
+// 给 body 打上平台标记：.titlebar-left 里 macOS 要预留红绿灯的位置
+document.body.classList.add(`platform-${window.libra.platform}`)
+
 const container = document.getElementById('root')
 if (!container) throw new Error('缺少 #root 容器')
 

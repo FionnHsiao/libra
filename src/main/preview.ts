@@ -108,6 +108,76 @@ export class PreviewHost {
     })
   }
 
+  /**
+   * 全屏阅读时在预览页里闪一下提示。
+   * 预览是原生视图，永远盖在主窗口 DOM 之上，所以提示只能画在预览页内部；
+   * 用 closed shadow root + 全部样式走 JS 赋值，避免和用户页面自己的 CSS / CSP 打架。
+   */
+  flashHint(text: string): void {
+    const message = JSON.stringify(String(text).slice(0, 60))
+    void this.view.webContents
+      .executeJavaScript(
+        `(() => {
+          try {
+            const ID = '__libra_hint__'
+            const old = document.getElementById(ID)
+            if (old) old.remove()
+            const host = document.createElement('div')
+            host.id = ID
+            host.style.position = 'fixed'
+            host.style.inset = 'auto 0 0 0'
+            host.style.display = 'flex'
+            host.style.justifyContent = 'center'
+            host.style.padding = '0 0 56px 0'
+            host.style.pointerEvents = 'none'
+            host.style.zIndex = '2147483647'
+            const root = host.attachShadow({ mode: 'closed' })
+            const pill = document.createElement('div')
+            pill.style.display = 'flex'
+            pill.style.alignItems = 'center'
+            pill.style.gap = '12px'
+            pill.style.padding = '11px 20px'
+            pill.style.borderRadius = '999px'
+            pill.style.background = 'rgba(16,18,26,0.88)'
+            pill.style.color = '#ffffff'
+            pill.style.font = '14px/1.2 "Segoe UI","Microsoft YaHei",system-ui,sans-serif'
+            pill.style.boxShadow = '0 16px 40px rgba(0,0,0,0.42)'
+            pill.style.border = '1px solid rgba(255,255,255,0.14)'
+            pill.style.backdropFilter = 'blur(10px)'
+            pill.style.opacity = '0'
+            pill.style.transform = 'translateY(8px)'
+            pill.style.transition = 'opacity 220ms ease, transform 220ms ease'
+            const key = document.createElement('span')
+            key.textContent = 'Esc'
+            key.style.font = '12px/1 ui-monospace,SFMono-Regular,Consolas,monospace'
+            key.style.padding = '5px 8px'
+            key.style.borderRadius = '6px'
+            key.style.background = 'rgba(255,255,255,0.16)'
+            key.style.border = '1px solid rgba(255,255,255,0.2)'
+            const label = document.createElement('span')
+            label.textContent = ${message}
+            pill.appendChild(key)
+            pill.appendChild(label)
+            root.appendChild(pill)
+            document.documentElement.appendChild(host)
+            requestAnimationFrame(() => {
+              pill.style.opacity = '1'
+              pill.style.transform = 'translateY(0)'
+            })
+            setTimeout(() => {
+              pill.style.opacity = '0'
+              pill.style.transform = 'translateY(6px)'
+              setTimeout(() => host.remove(), 420)
+            }, 2400)
+          } catch (error) {
+            /* 提示失败不影响阅读 */
+          }
+        })()`,
+        true
+      )
+      .catch(() => undefined)
+  }
+
   scrollTo(index: number): void {
     const safe = Math.max(0, Math.min(99999, Math.floor(index)))
     void this.view.webContents
