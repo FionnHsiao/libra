@@ -179,35 +179,29 @@ button.primary:hover:not(:disabled) {
   font-weight: 600;
 }
 
-/* ---- 侧边栏 ---- */
+/* ---- 三栏主体 ---- */
 
 .body {
   display: flex;
   min-height: 0;
 }
 
-.sidebar {
-  flex: 0 0 236px;
+.panel-left,
+.panel-right {
   display: flex;
   flex-direction: column;
   min-height: 0;
   background: var(--panel);
+}
+
+.panel-left {
+  flex: 0 0 232px;
   border-right: 1px solid var(--line);
 }
 
-.panel {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-}
-
-.outline-panel {
-  flex: 0 1 46%;
-  border-bottom: 1px solid var(--line);
-}
-
-.files-panel {
-  flex: 1 1 54%;
+.panel-right {
+  flex: 0 0 208px;
+  border-left: 1px solid var(--line);
 }
 
 .panel-head {
@@ -215,7 +209,7 @@ button.primary:hover:not(:disabled) {
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-  padding: 10px 14px 6px;
+  padding: 11px 14px 7px;
   flex-shrink: 0;
 }
 
@@ -240,7 +234,7 @@ button.primary:hover:not(:disabled) {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0 8px 10px;
+  padding: 0 8px 14px;
 }
 
 .panel-empty {
@@ -248,41 +242,6 @@ button.primary:hover:not(:disabled) {
   font-size: 12px;
   color: var(--muted);
   line-height: 1.7;
-}
-
-.outline-item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 4px 9px;
-  margin-bottom: 1px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: #4c463a;
-  font-size: 12px;
-  line-height: 1.55;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.outline-item:hover {
-  background: var(--panel-hover);
-  color: var(--text);
-}
-
-.outline-item.level-1 {
-  font-weight: 600;
-  color: #3d382e;
-}
-
-.outline-item.level-3,
-.outline-item.level-4,
-.outline-item.level-5,
-.outline-item.level-6 {
-  color: #6b6459;
-  font-size: 11.5px;
 }
 
 .file-item {
@@ -311,6 +270,41 @@ button.primary:hover:not(:disabled) {
   background: var(--accent-soft);
   color: var(--accent-strong);
   font-weight: 600;
+}
+
+.outline-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 4px 9px;
+  margin-bottom: 1px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #565044;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.outline-item:hover {
+  background: var(--panel-hover);
+  color: var(--text);
+}
+
+.outline-item.level-1 {
+  font-weight: 600;
+  color: #3d382e;
+}
+
+.outline-item.level-3,
+.outline-item.level-4,
+.outline-item.level-5,
+.outline-item.level-6 {
+  color: #6b6459;
+  font-size: 11.5px;
 }
 
 /* ---- 内容区 ---- */

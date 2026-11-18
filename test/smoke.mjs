@@ -91,12 +91,12 @@ try {
   }
 
   const menuClick = `(() => {
-    const m = require('electron').Menu.getApplicationMenu().getMenuItemById('sidebar-toggle')
+    const m = require('electron').Menu.getApplicationMenu().getMenuItemById('files-toggle')
     m.click()
     return m.checked
   })()`
   const menuChecked = () =>
-    mainProc.evaluate(`String(require('electron').Menu.getApplicationMenu().getMenuItemById('sidebar-toggle').checked)`)
+    mainProc.evaluate(`String(require('electron').Menu.getApplicationMenu().getMenuItemById('files-toggle').checked)`)
 
   const ui = JSON.parse(
     await shell.evaluate(`JSON.stringify({
@@ -111,6 +111,23 @@ try {
   check('默认进入阅读模式（源码隐藏）', ui.hasEditor && ui.editorHidden, `display=${ui.editorHidden ? 'none' : 'block'}`)
   check('左侧文件列表列出同目录 HTML', ui.fileItems >= 2, `${ui.fileItems} 个，当前 ${ui.activeName}`)
   check('浅色主题生效', ui.bodyBg === 'rgb(247, 244, 236)', ui.bodyBg)
+
+  const layout = JSON.parse(
+    await shell.evaluate(`JSON.stringify({
+      leftRight: Math.round(document.querySelector('.panel-left')?.getBoundingClientRect().right ?? -1),
+      previewLeft: Math.round(document.querySelector('.preview-host')?.getBoundingClientRect().left ?? -1),
+      previewRight: Math.round(document.querySelector('.preview-host')?.getBoundingClientRect().right ?? -1),
+      rightLeft: Math.round(document.querySelector('.panel-right')?.getBoundingClientRect().left ?? -1),
+      outlineInRight: document.querySelectorAll('.panel-right .outline-item').length
+    })`)
+  )
+  check(
+    '左文件列表 / 中预览 / 右大纲 三栏排布',
+    layout.leftRight <= layout.previewLeft &&
+      layout.previewRight <= layout.rightLeft &&
+      layout.outlineInRight > 0,
+    `左 ends ${layout.leftRight}，预览 ${layout.previewLeft}-${layout.previewRight}，右 starts ${layout.rightLeft}，右侧大纲 ${layout.outlineInRight} 项`
+  )
 
   preview = await attach(
     (await listTargets()).find((t) => t.url.startsWith('libra-file://')).webSocketDebuggerUrl
@@ -156,16 +173,16 @@ try {
 
   await mainProc.evaluate(menuClick)
   await sleep(600)
-  const hiddenByMenu = await shell.evaluate(`document.querySelectorAll('.sidebar').length`)
+  const hiddenByMenu = await shell.evaluate(`document.querySelectorAll('.panel-left').length`)
   const checkedHidden = await menuChecked()
   await mainProc.evaluate(menuClick)
   await sleep(600)
-  const shownByMenu = await shell.evaluate(`document.querySelectorAll('.sidebar').length`)
+  const shownByMenu = await shell.evaluate(`document.querySelectorAll('.panel-left').length`)
   const checkedShown = await menuChecked()
   check(
-    '菜单项切换侧边栏并同步勾选',
+    '菜单项切换文件列表并同步勾选',
     hiddenByMenu === 0 && checkedHidden === 'false' && shownByMenu === 1 && checkedShown === 'true',
-    `侧栏 ${hiddenByMenu}/${shownByMenu}，勾选 ${checkedHidden}/${checkedShown}`
+    `文件栏 ${hiddenByMenu}/${shownByMenu}，勾选 ${checkedHidden}/${checkedShown}`
   )
 
   const doc = JSON.parse(

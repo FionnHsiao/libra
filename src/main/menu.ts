@@ -1,10 +1,12 @@
 import { app, BrowserWindow, dialog, Menu, shell, type MenuItemConstructorOptions } from 'electron'
 import { CH, type CommandId, type ViewMode } from '../shared/protocol'
 
-const SIDEBAR_ITEM_ID = 'sidebar-toggle'
+const FILES_ITEM_ID = 'files-toggle'
+const OUTLINE_ITEM_ID = 'outline-toggle'
 const MODE_EDIT_ITEM_ID = 'mode-edit'
 
-let sidebarVisible = true
+let filesVisible = true
+let outlineVisible = true
 let viewMode: ViewMode = 'read'
 
 const SHORTCUTS = [
@@ -12,7 +14,8 @@ const SHORTCUTS = [
   '保存              Ctrl+S',
   '另存为            Ctrl+Shift+S',
   '切换阅读 / 编辑    Ctrl+E',
-  '显示侧边栏         Ctrl+B',
+  '文件列表           Ctrl+B',
+  '大纲              Ctrl+Shift+B',
   '在编辑模式查找      Ctrl+F',
   '放大 / 缩小        Ctrl+= / Ctrl+-',
   '实际大小          Ctrl+0',
@@ -27,10 +30,14 @@ function sendCommand(id: CommandId): void {
   focusedWindow()?.webContents.send(CH.command, { id })
 }
 
-export function setSidebarChecked(visible: boolean): void {
-  sidebarVisible = visible
-  const item = Menu.getApplicationMenu()?.getMenuItemById(SIDEBAR_ITEM_ID)
-  if (item) item.checked = visible
+export function setPanelsChecked(files: boolean, outline: boolean): void {
+  filesVisible = files
+  outlineVisible = outline
+  const menu = Menu.getApplicationMenu()
+  const filesItem = menu?.getMenuItemById(FILES_ITEM_ID)
+  const outlineItem = menu?.getMenuItemById(OUTLINE_ITEM_ID)
+  if (filesItem) filesItem.checked = files
+  if (outlineItem) outlineItem.checked = outline
 }
 
 export function setModeChecked(mode: ViewMode): void {
@@ -86,12 +93,20 @@ export function installMenu(): void {
       label: '视图',
       submenu: [
         {
-          id: SIDEBAR_ITEM_ID,
-          label: '显示侧边栏',
+          id: FILES_ITEM_ID,
+          label: '文件列表',
           type: 'checkbox',
-          checked: sidebarVisible,
+          checked: filesVisible,
           accelerator: 'CmdOrCtrl+B',
-          click: () => sendCommand('toggle-sidebar')
+          click: () => sendCommand('toggle-files')
+        },
+        {
+          id: OUTLINE_ITEM_ID,
+          label: '大纲',
+          type: 'checkbox',
+          checked: outlineVisible,
+          accelerator: 'CmdOrCtrl+Shift+B',
+          click: () => sendCommand('toggle-outline')
         },
         { type: 'separator' },
         {

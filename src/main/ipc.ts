@@ -13,7 +13,7 @@ import {
   type SavePayload
 } from '../shared/protocol'
 import { readDocument, writeTextAtomic } from './files'
-import { setModeChecked, setSidebarChecked } from './menu'
+import { setModeChecked, setPanelsChecked } from './menu'
 import { getPreviewHost } from './preview'
 
 const allowedExtensions = new Set<string>(ALLOWED_EXTENSIONS)
@@ -235,8 +235,10 @@ export function registerIpc(): void {
     getPreviewHost(win.webContents.id)?.scrollTo(rawIndex)
   })
 
-  ipcMain.on(CH.sidebarVisible, (_event, value: unknown) => {
-    setSidebarChecked(value === true)
+  ipcMain.on(CH.panelVisibility, (_event, value: unknown) => {
+    if (typeof value !== 'object' || value === null) return
+    const panels = value as { files?: unknown; outline?: unknown }
+    setPanelsChecked(panels.files === true, panels.outline === true)
   })
 
   ipcMain.on(CH.viewMode, (_event, value: unknown) => {

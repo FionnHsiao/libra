@@ -49,6 +49,11 @@ export interface OutlineItem {
   text: string
 }
 
+export interface PanelVisibility {
+  files: boolean
+  outline: boolean
+}
+
 export interface PreviewRect {
   x: number
   y: number
@@ -61,9 +66,8 @@ export type CommandId =
   | 'save'
   | 'save-as'
   | 'toggle-mode'
-  | 'mode-read'
-  | 'mode-edit'
-  | 'toggle-sidebar'
+  | 'toggle-files'
+  | 'toggle-outline'
   | 'find'
   | 'reveal'
   | 'reload-preview'
@@ -83,7 +87,7 @@ export interface LibraApi {
   reloadPreview(): void
   setPreviewBounds(rect: PreviewRect | null): void
   scrollPreviewTo(index: number): void
-  setSidebarVisible(visible: boolean): void
+  setPanelsVisible(panels: PanelVisibility): void
   setViewMode(mode: ViewMode): void
   revealInFolder(path: string): void
   setDirty(dirty: boolean): void
@@ -116,7 +120,7 @@ export const CH = {
   previewNavigate: 'libra:preview:navigate',
   previewOutline: 'libra:preview:outline',
   previewScrollTo: 'libra:preview:scroll-to',
-  sidebarVisible: 'libra:sidebar:visible',
+  panelVisibility: 'libra:panels:visible',
   viewMode: 'libra:view:mode',
   reveal: 'libra:file:reveal',
   command: 'libra:command',

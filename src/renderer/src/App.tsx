@@ -1,10 +1,10 @@
 import type { EditorView } from '@codemirror/view'
-import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import { openSearchPanel } from '@codemirror/search'
+import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { DocumentData, FolderListing, OutlineItem, PreviewRect, ViewMode } from '../../shared/protocol'
 import { Editor } from './Editor'
 import { PreviewPane } from './PreviewPane'
-import { Sidebar } from './Sidebar'
+import { FileList, OutlineList } from './Sidebar'
 
 interface Cursor {
   line: number
@@ -56,12 +56,12 @@ export function App(): ReactElement {
   const [folder, setFolder] = useState<FolderListing | null>(null)
   const [outline, setOutline] = useState<OutlineItem[]>([])
   const [status, setStatus] = useState<string | null>(null)
-  const [sidebarVisible, setSidebarVisible] = useState(true)
+  const [filesVisible, setFilesVisible] = useState(true)
+  const [outlineVisible, setOutlineVisible] = useState(true)
 
   const viewRef = useRef<EditorView | null>(null)
   const docRef = useRef<DocumentData | null>(null)
   const dirtyRef = useRef(false)
-  const sidebarRef = useRef(true)
 
   const markDirty = useCallback((value: boolean) => {
     dirtyRef.current = value
@@ -173,13 +173,6 @@ export function App(): ReactElement {
     window.libra.setPreviewBounds(rect)
   }, [])
 
-  const toggleSidebar = useCallback(() => {
-    const next = !sidebarRef.current
-    sidebarRef.current = next
-    setSidebarVisible(next)
-    window.libra.setSidebarVisible(next)
-  }, [])
-
   const handleOutlineJump = useCallback((index: number) => {
     window.libra.scrollPreviewTo(index)
   }, [])
@@ -201,6 +194,10 @@ export function App(): ReactElement {
   useEffect(() => {
     window.libra.setViewMode(mode)
   }, [mode])
+
+  useEffect(() => {
+    window.libra.setPanelsVisible({ files: filesVisible, outline: outlineVisible })
+  }, [filesVisible, outlineVisible])
 
   useEffect(() => {
     const name = doc ? baseName(doc.path) : '未打开文件'
@@ -225,16 +222,12 @@ export function App(): ReactElement {
         setMode((current) => (current === 'read' ? 'edit' : 'read'))
         return
       }
-      if (message.id === 'toggle-sidebar') {
-        toggleSidebar()
+      if (message.id === 'toggle-files') {
+        setFilesVisible((current) => !current)
         return
       }
-      if (message.id === 'mode-read') {
-        setMode('read')
-        return
-      }
-      if (message.id === 'mode-edit') {
-        setMode('edit')
+      if (message.id === 'toggle-outline') {
+        setOutlineVisible((current) => !current)
         return
       }
       if (message.id === 'find') {
@@ -261,7 +254,6 @@ export function App(): ReactElement {
     const offOutline = window.libra.onOutline((items) => {
       setOutline(items)
     })
-    window.libra.setSidebarVisible(sidebarRef.current)
     window.libra.ready()
 
     return () => {
@@ -270,7 +262,7 @@ export function App(): ReactElement {
       offNavigate()
       offOutline()
     }
-  }, [openPath, openViaDialog, saveDocument, saveDocumentAs, toggleSidebar, openFind])
+  }, [openPath, openViaDialog, saveDocument, saveDocumentAs, openFind])
 
   useEffect(() => {
     const handleDragOver = (event: DragEvent): void => {
@@ -344,14 +336,12 @@ export function App(): ReactElement {
       </header>
 
       <div className="body">
-        {doc && folder && sidebarVisible ? (
-          <Sidebar
+        {doc && folder && filesVisible ? (
+          <FileList
             dir={folder.dir}
             files={folder.files}
             activePath={doc.path}
-            outline={outline}
             onSelect={(path) => void openPath(path)}
-            onOutlineJump={handleOutlineJump}
           />
         ) : null}
 
@@ -375,6 +365,8 @@ export function App(): ReactElement {
             <EmptyState onOpen={() => void openViaDialog()} />
           )}
         </main>
+
+        {doc && outlineVisible ? <OutlineList outline={outline} onJump={handleOutlineJump} /> : null}
       </div>
 
       <footer className="statusbar">
