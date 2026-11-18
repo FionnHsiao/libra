@@ -4,8 +4,8 @@ import path from 'node:path'
 
 const PROJECT = 'E:/Libra/libra'
 const PROFILE = path.join(os.tmpdir(), 'libra-shot-profile4')
-const PORT = 9563
-const INSPECT = 9298
+const PORT = 9564
+const INSPECT = 9299
 const { default: electronPath } = await import('electron')
 const child = spawn(electronPath, ['.', '--remote-debugging-port=' + PORT, '--inspect=' + INSPECT, '--user-data-dir=' + PROFILE], { cwd: PROJECT, stdio: 'ignore' })
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -39,17 +39,18 @@ try {
 
   const mlist = await (await fetch('http://127.0.0.1:' + INSPECT + '/json/list')).json()
   const main = await connect((mlist.find((x) => x.type === 'node') ?? mlist[0]).webSocketDebuggerUrl)
-  await main.evaluate('(() => { const w = require("electron").BrowserWindow.getAllWindows()[0]; w.show(); w.focus(); w.moveTop(); return "ok" })()')
-  await sleep(900)
+
+  // 置顶 + 触发一次重绘，确保子视图有绘制表面
+  await main.evaluate('(() => { const w = require("electron").BrowserWindow.getAllWindows()[0]; w.setAlwaysOnTop(true, "screen-saver"); w.show(); w.focus(); w.moveTop(); const [a, b] = w.getSize(); w.setSize(a, b + 1); setTimeout(() => w.setSize(a, b), 60); return "ok" })()')
+  await sleep(1200)
 
   await shell.evaluate('[...document.querySelectorAll(".menubar-button")].find((b) => b.textContent.trim() === "帮助").click()')
-  await sleep(600)
+  await sleep(1000)
 
-  await main.evaluate('(() => { const w = require("electron").BrowserWindow.getAllWindows()[0]; w.show(); w.focus(); w.moveTop(); const [a, b] = w.getSize(); w.setSize(a, b + 1); setTimeout(() => w.setSize(a, b), 60); return "ok" })()')
-  await sleep(1500)
+  console.log(await grab(path.join(os.tmpdir(), 'shadow-1.png')))
+  console.log(await grab(path.join(os.tmpdir(), 'shadow-2.png')))
 
-  console.log(await grab(path.join(os.tmpdir(), 'overlay-shadow.png')))
-
+  await main.evaluate('(() => { require("electron").BrowserWindow.getAllWindows()[0].setAlwaysOnTop(false); return "ok" })()')
   shell.close()
   main.close()
 } finally {

@@ -4,7 +4,7 @@ import { CH, type OverlayOpenPayload } from '../shared/protocol'
 
 const hosts = new Map<number, OverlayHost>()
 const hostByView = new Map<number, OverlayHost>()
-const SHADOW_PADDING = 24
+const SHADOW_PADDING = 28
 
 export class OverlayHost {
   private view: WebContentsView | null = null
