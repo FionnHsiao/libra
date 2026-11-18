@@ -24,8 +24,22 @@ const api: LibraApi = {
   loadPreview: (path) => ipcRenderer.invoke(CH.previewLoad, path),
   reloadPreview: () => ipcRenderer.send(CH.previewReload),
   setPreviewBounds: (rect: PreviewRect | null) => ipcRenderer.send(CH.previewBounds, rect),
-  setPreviewSuppressed: (suppressed) => ipcRenderer.send(CH.previewSuppress, suppressed),
-  capturePreview: () => ipcRenderer.invoke(CH.previewCapture),
+  openOverlay: (payload) => ipcRenderer.send(CH.overlayOpen, payload),
+  closeOverlay: () => ipcRenderer.send(CH.overlayClose),
+  onOverlaySelect: (callback) => {
+    const handler = (_event: unknown, id: string): void => callback(id)
+    ipcRenderer.on(CH.overlaySelected, handler)
+    return () => {
+      ipcRenderer.removeListener(CH.overlaySelected, handler)
+    }
+  },
+  onOverlayDismiss: (callback) => {
+    const handler = (): void => callback()
+    ipcRenderer.on(CH.overlayDismissed, handler)
+    return () => {
+      ipcRenderer.removeListener(CH.overlayDismissed, handler)
+    }
+  },
   scrollPreviewTo: (index) => ipcRenderer.send(CH.previewScrollTo, index),
   revealInFolder: (path) => ipcRenderer.send(CH.reveal, path),
   appAction: (action) => ipcRenderer.send(CH.appAction, action),
@@ -77,3 +91,21 @@ const api: LibraApi = {
 }
 
 contextBridge.exposeInMainWorld('libra', api)
+
+// 弹层页面复用同一个 preload（沙箱 preload 不能 require 相对模块，
+// 所以只能放在同一个文件里，不能拆成第二个入口）
+const overlayApi = {
+  ready: (): void => ipcRenderer.send(CH.overlayReady),
+  measure: (height: number): void => ipcRenderer.send(CH.overlayMeasure, height),
+  select: (id: string): void => ipcRenderer.send(CH.overlaySelect, id),
+  close: (): void => ipcRenderer.send(CH.overlayClose),
+  onData: (callback: (payload: { items: unknown[]; width: number }) => void): (() => void) => {
+    const handler = (_event: unknown, payload: { items: unknown[]; width: number }): void => callback(payload)
+    ipcRenderer.on(CH.overlayData, handler)
+    return () => {
+      ipcRenderer.removeListener(CH.overlayData, handler)
+    }
+  }
+}
+
+contextBridge.exposeInMainWorld('overlayApi', overlayApi)

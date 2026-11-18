@@ -19,7 +19,12 @@ export default defineConfig({
     root: resolve('src/renderer'),
     plugins: [react()],
     build: {
-      rollupOptions: { input: { index: resolve('src/renderer/index.html') } }
+      rollupOptions: {
+        input: {
+          index: resolve('src/renderer/index.html'),
+          overlay: resolve('src/renderer/overlay.html')
+        }
+      }
     }
   }
 })

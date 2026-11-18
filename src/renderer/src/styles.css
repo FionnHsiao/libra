@@ -144,67 +144,6 @@ body.platform-mac .titlebar-left {
   color: var(--text);
 }
 
-.menu-dropdown {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 100;
-  min-width: 214px;
-  padding: 5px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #ffffff;
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
-}
-
-.menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  height: 28px;
-  padding: 0 8px;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text);
-  font-size: 12.5px;
-  text-align: left;
-}
-
-.menu-item:hover:not(:disabled) {
-  background: var(--hover);
-  color: var(--text);
-}
-
-.menu-item:disabled {
-  opacity: 0.36;
-}
-
-.menu-check {
-  width: 14px;
-  flex-shrink: 0;
-  font-size: 11px;
-  color: var(--text);
-}
-
-.menu-label {
-  flex: 1;
-  white-space: nowrap;
-}
-
-.menu-accel {
-  font-size: 11px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.menu-separator {
-  height: 1px;
-  margin: 5px 6px;
-  background: var(--line);
-}
-
 /* ---- 图标栏 ---- */
 
 .body {
@@ -733,77 +672,6 @@ body.resizing {
   user-select: none;
 }
 
-/* ---- 已打开文件列表 ---- */
-
-.tab-list-menu {
-  width: 268px;
-  max-height: 320px;
-  overflow-y: auto;
-  padding: 5px;
-}
-
-.tab-list-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border-radius: 6px;
-  padding-right: 4px;
-}
-
-.tab-list-item:hover {
-  background: var(--hover);
-}
-
-.tab-list-item.active {
-  background: rgba(0, 0, 0, 0.06);
-}
-
-.tab-list-name {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 8px;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  font-size: 12.5px;
-  text-align: left;
-}
-
-.tab-list-name:hover:not(:disabled) {
-  border-color: transparent;
-  color: var(--text);
-}
-
-.tab-list-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tab-list-close {
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: none;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.tab-list-close:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.09);
-  color: var(--text);
-}
-
 /* ---- 内容区 ---- */
 
 .content {
@@ -840,6 +708,7 @@ body.resizing {
 }
 
 .preview-host {
+  position: relative;
   height: 100%;
   background: #ffffff;
 }

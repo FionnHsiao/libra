@@ -1,20 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
-import { popupOverlapsPreview, releasePreview, suppressPreview } from './previewSuppress'
+import { closeOverlayMenu, openOverlayMenu, type MenuGroup } from './overlayMenu'
 
-export interface MenuAction {
-  label: string
-  accelerator?: string
-  checked?: boolean
-  disabled?: boolean
-  onSelect: () => void
-}
-
-export type MenuEntry = { type: 'separator' } | ({ type: 'item' } & MenuAction)
-
-export interface MenuGroup {
-  label: string
-  items: MenuEntry[]
-}
+export type { MenuGroup } from './overlayMenu'
 
 interface MenuBarProps {
   groups: MenuGroup[]
@@ -23,42 +10,37 @@ interface MenuBarProps {
 export function MenuBar({ groups }: MenuBarProps): ReactElement {
   const [openIndex, setOpenIndex] = useState<number | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
-  const suppressedRef = useRef(false)
 
-  const closeMenu = useCallback(() => {
+  const close = useCallback(() => {
+    closeOverlayMenu()
     setOpenIndex(null)
-    if (suppressedRef.current) {
-      suppressedRef.current = false
-      releasePreview()
-    }
   }, [])
 
-  const openMenu = useCallback(async (index: number, element: HTMLElement) => {
-    const rect = element.getBoundingClientRect()
-    if (!suppressedRef.current && popupOverlapsPreview(rect.left, 224)) {
-      suppressedRef.current = await suppressPreview()
-    }
-    setOpenIndex(index)
-  }, [])
+  const openAt = useCallback(
+    (index: number, element: HTMLElement) => {
+      const group = groups[index]
+      if (!group) return
+      const rect = element.getBoundingClientRect()
+      openOverlayMenu(
+        group.items,
+        { x: Math.round(rect.left), y: Math.round(rect.bottom + 6), width: 224 },
+        () => setOpenIndex(null)
+      )
+      setOpenIndex(index)
+    },
+    [groups]
+  )
 
   useEffect(() => {
     if (openIndex === null) return undefined
-
-    const handlePointerDown = (event: MouseEvent): void => {
+    const handleDown = (event: MouseEvent): void => {
       const root = rootRef.current
-      if (root && !root.contains(event.target as Node)) closeMenu()
+      if (root && root.contains(event.target as Node)) return
+      close()
     }
-    const handleKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') closeMenu()
-    }
-
-    document.addEventListener('mousedown', handlePointerDown)
-    document.addEventListener('keydown', handleKeyDown)
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [openIndex, closeMenu])
+    document.addEventListener('mousedown', handleDown)
+    return () => document.removeEventListener('mousedown', handleDown)
+  }, [openIndex, close])
 
   return (
     <div className="menubar" ref={rootRef}>
@@ -68,40 +50,15 @@ export function MenuBar({ groups }: MenuBarProps): ReactElement {
             type="button"
             className={openIndex === index ? 'menubar-button open' : 'menubar-button'}
             onClick={(event) => {
-              if (openIndex === index) closeMenu()
-              else void openMenu(index, event.currentTarget)
+              if (openIndex === index) close()
+              else openAt(index, event.currentTarget)
             }}
             onMouseEnter={(event) => {
-              if (openIndex !== null && openIndex !== index) void openMenu(index, event.currentTarget)
+              if (openIndex !== null && openIndex !== index) openAt(index, event.currentTarget)
             }}
           >
             {group.label}
           </button>
-
-          {openIndex === index ? (
-            <div className="menu-dropdown">
-              {group.items.map((entry, itemIndex) =>
-                entry.type === 'separator' ? (
-                  <div className="menu-separator" key={`sep-${itemIndex}`} />
-                ) : (
-                  <button
-                    key={entry.label}
-                    type="button"
-                    className="menu-item"
-                    disabled={entry.disabled === true}
-                    onClick={() => {
-                      closeMenu()
-                      entry.onSelect()
-                    }}
-                  >
-                    <span className="menu-check">{entry.checked ? '✓' : ''}</span>
-                    <span className="menu-label">{entry.label}</span>
-                    {entry.accelerator ? <span className="menu-accel">{entry.accelerator}</span> : null}
-                  </button>
-                )
-              )}
-            </div>
-          ) : null}
         </div>
       ))}
     </div>
@@ -111,14 +68,7 @@ export function MenuBar({ groups }: MenuBarProps): ReactElement {
 export function ChevronDownIcon(): ReactElement {
   return (
     <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-      <path
-        d="M4 6.2 8 10.2l4-4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <path d="M4 6.2 8 10.2l4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -149,13 +99,7 @@ export function LibraMark(): ReactElement {
 export function HomeIcon(): ReactElement {
   return (
     <svg viewBox="0 0 16 16" width="17" height="17" aria-hidden="true">
-      <path
-        d="M2.5 6.9 8 2.3l5.5 4.6V13a1 1 0 0 1-1 1h-3V9.4H6.5V14h-3a1 1 0 0 1-1-1z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.3"
-        strokeLinejoin="round"
-      />
+      <path d="M2.5 6.9 8 2.3l5.5 4.6V13a1 1 0 0 1-1 1h-3V9.4H6.5V14h-3a1 1 0 0 1-1-1z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -182,16 +126,7 @@ export function FilesIcon({ active }: { active: boolean }): ReactElement {
 export function OutlineIcon({ active }: { active: boolean }): ReactElement {
   return (
     <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
-      <rect
-        x="1.8"
-        y="2.6"
-        width="12.4"
-        height="10.8"
-        rx="2"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.3"
-      />
+      <rect x="1.8" y="2.6" width="12.4" height="10.8" rx="2" fill="none" stroke="currentColor" strokeWidth="1.3" />
       <path d="M10 2.8v10.4" stroke="currentColor" strokeWidth="1.3" opacity={active ? 1 : 0.5} />
     </svg>
   )

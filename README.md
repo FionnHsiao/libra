@@ -103,6 +103,8 @@ node node_modules/electron/install.js
 
 ## 设计
 
+- 弹层（顶部菜单 / 右键菜单 / 页签列表）渲染在独立的 WebContentsView 里。原因：预览是原生视图，永远画在网页内容之上，DOM 弹层会被它压住；只有让弹层本身也是一层原生视图，两者才能同时可见。
+
 - [AGENTS.md](AGENTS.md)：工程铁律（文本即真相、不做整页所见即所得、预览必须隔离、保存必须保真）
 - [docs/architecture.md](docs/architecture.md)：技术调研、同类产品对比、风险清单
 

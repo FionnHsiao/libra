@@ -2,6 +2,24 @@ export type Eol = 'LF' | 'CRLF'
 
 export type ViewMode = 'read' | 'edit'
 
+export interface OverlayItem {
+  id: string
+  label?: string
+  accelerator?: string
+  checked?: boolean
+  disabled?: boolean
+  separator?: boolean
+  secondary?: { id: string; label: string }
+}
+
+export interface OverlayOpenPayload {
+  items: OverlayItem[]
+  x: number
+  y: number
+  width: number
+  minWidth?: number
+}
+
 export interface JarEntry {
   kind: 'dir' | 'file'
   path: string
@@ -123,8 +141,10 @@ export interface LibraApi {
   loadPreview(path: string): Promise<void>
   reloadPreview(): void
   setPreviewBounds(rect: PreviewRect | null): void
-  setPreviewSuppressed(suppressed: boolean): void
-  capturePreview(): Promise<string | null>
+  openOverlay(payload: OverlayOpenPayload): void
+  closeOverlay(): void
+  onOverlaySelect(callback: (id: string) => void): () => void
+  onOverlayDismiss(callback: () => void): () => void
   scrollPreviewTo(index: number): void
   revealInFolder(path: string): void
   appAction(action: AppAction): void
@@ -163,8 +183,14 @@ export const CH = {
   previewLoad: 'libra:preview:load',
   previewReload: 'libra:preview:reload',
   previewBounds: 'libra:preview:bounds',
-  previewSuppress: 'libra:preview:suppress',
-  previewCapture: 'libra:preview:capture',
+  overlayOpen: 'libra:overlay:open',
+  overlayClose: 'libra:overlay:close',
+  overlayData: 'libra:overlay:data',
+  overlayMeasure: 'libra:overlay:measure',
+  overlaySelect: 'libra:overlay:select',
+  overlaySelected: 'libra:overlay:selected',
+  overlayDismissed: 'libra:overlay:dismissed',
+  overlayReady: 'libra:overlay:ready',
   previewNavigate: 'libra:preview:navigate',
   previewOutline: 'libra:preview:outline',
   previewScrollTo: 'libra:preview:scroll-to',

@@ -76,6 +76,33 @@ async function attach(webSocketDebuggerUrl) {
 const results = []
 const check = (name, pass, detail) => results.push([name, pass, detail])
 
+// 菜单现在渲染在独立的弹层视图里，需要连过去操作
+async function withOverlay(fn) {
+  const target = (await listTargets()).find((t) => t.url.includes('overlay.html'))
+  if (!target) return null
+  const overlay = await attach(target.webSocketDebuggerUrl)
+  try {
+    return await fn(overlay)
+  } finally {
+    overlay.close()
+  }
+}
+
+const overlayLabels = () =>
+  withOverlay((overlay) =>
+    overlay.evaluate(`JSON.stringify([...document.querySelectorAll('.row .label')].map((el) => el.textContent))`)
+  )
+
+const overlayClick = (label) =>
+  withOverlay((overlay) =>
+    overlay.evaluate(`(() => {
+      const row = [...document.querySelectorAll('.row')].find((r) => r.textContent.includes(${JSON.stringify(label)}))
+      if (!row) return false
+      row.querySelector('.item').click()
+      return true
+    })()`)
+  )
+
 let shell
 let preview
 try {
@@ -108,11 +135,11 @@ try {
   check('星星罐标题有五个操作按钮', jarButtons === 5, `${jarButtons} 个`)
 
   await shell.evaluate(`document.querySelector('.jar-actions button').click()`)
-  await sleep(300)
-  const addItems = JSON.parse(
-    await shell.evaluate(`JSON.stringify([...document.querySelectorAll('.context-menu .menu-label')].map((el) => el.textContent))`)
-  )
+  await sleep(600)
+  const addItems = JSON.parse((await overlayLabels()) ?? '[]')
   check('加号可添加文件夹或文件', addItems.join(',') === '添加文件夹,添加文件', addItems.join(','))
+  await withOverlay((overlay) => overlay.evaluate(`window.overlayApi.close()`))
+  await sleep(300)
   await shell.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
   await sleep(200)
   check(
@@ -125,9 +152,9 @@ try {
   check('左侧图标栏有主页与 Git 两个按钮', ui.railButtons === 2, `${ui.railButtons} 个按钮`)
 
   await shell.evaluate(`[...document.querySelectorAll('.menubar-button')].find((b) => b.textContent.trim() === '视图').click()`)
-  await sleep(250)
-  await shell.evaluate(`[...document.querySelectorAll('.menu-item')].find((b) => b.textContent.includes('编辑模式')).click()`)
-  await sleep(500)
+  await sleep(600)
+  await overlayClick('编辑模式')
+  await sleep(600)
   const editDisplay = await shell.evaluate(`getComputedStyle(document.querySelector('.editor-pane')).display`)
   await shell.evaluate(`document.querySelector('.rail-btn').click()`)
   await sleep(500)
@@ -205,16 +232,19 @@ try {
   check('点目录跳到文档对应位置', scrollAfter > scrollBefore + 100, `scrollY ${scrollBefore} -> ${scrollAfter}`)
 
   await shell.evaluate(`[...document.querySelectorAll('.menubar-button')].find((b) => b.textContent.trim() === '视图').click()`)
-  await sleep(250)
-  await shell.evaluate(`[...document.querySelectorAll('.menu-item')].find((b) => b.textContent.includes('文件列表')).click()`)
+  await sleep(600)
+  const menuVisible = await overlayLabels()
+  await overlayClick('文件列表')
   await sleep(500)
   const hiddenByMenu = await shell.evaluate(`document.querySelectorAll('.panel-left').length`)
   await shell.evaluate(`[...document.querySelectorAll('.menubar-button')].find((b) => b.textContent.trim() === '视图').click()`)
-  await sleep(250)
-  const checkedByMenu = await shell.evaluate(
-    `[...document.querySelectorAll('.menu-item')].find((b) => b.textContent.includes('文件列表'))?.querySelector('.menu-check')?.textContent ?? ''`
+  await sleep(600)
+  const checkedByMenu = await withOverlay((overlay) =>
+    overlay.evaluate(
+      `[...document.querySelectorAll('.row')].find((r) => r.textContent.includes('文件列表'))?.querySelector('.check')?.textContent ?? ''`
+    )
   )
-  await shell.evaluate(`[...document.querySelectorAll('.menu-item')].find((b) => b.textContent.includes('文件列表')).click()`)
+  await overlayClick('文件列表')
   await sleep(500)
   const restoredByMenu = await shell.evaluate(`document.querySelectorAll('.panel-left').length`)
   check('菜单项切换文件列表并同步勾选', hiddenByMenu === 0 && checkedByMenu === '' && restoredByMenu === 1, `隐藏 ${hiddenByMenu}，勾选 "${checkedByMenu}"，恢复 ${restoredByMenu}`)
@@ -283,16 +313,12 @@ try {
     const row = [...document.querySelectorAll('.panel-left .tree-row')].find((el) => el.textContent.trim() === 'another.html')
     row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 160, clientY: 260 }))
   })()`)
-  await sleep(300)
-  const menuItems = JSON.parse(
-    await shell.evaluate(`JSON.stringify([...document.querySelectorAll('.context-menu .menu-item')].map((el) => el.textContent.trim()))`)
-  )
+  await sleep(600)
+  const menuItems = JSON.parse((await overlayLabels()) ?? '[]')
   check('右键文件出现菜单', menuItems.some((item) => item.includes('重命名')), menuItems.join(' / '))
 
-  await shell.evaluate(
-    `[...document.querySelectorAll('.context-menu .menu-item')].find((el) => el.textContent.includes('重命名')).click()`
-  )
-  await sleep(300)
+  await overlayClick('重命名')
+  await sleep(400)
   const renameInputs = await shell.evaluate(`document.querySelectorAll('.rename-input').length`)
   check('重命名进入行内输入', renameInputs === 1, `${renameInputs} 个输入框`)
 
@@ -331,12 +357,14 @@ try {
   await sleep(600)
 
   await shell.evaluate(`document.querySelector('.tab-list-toggle').click()`)
-  await sleep(300)
+  await sleep(600)
   const tabListInfo = JSON.parse(
-    await shell.evaluate(`JSON.stringify({
-      items: [...document.querySelectorAll('.tab-list-item .tab-list-label')].map((el) => el.textContent),
-      closers: document.querySelectorAll('.tab-list-close').length
-    })`)
+    (await withOverlay((overlay) =>
+      overlay.evaluate(`JSON.stringify({
+        items: [...document.querySelectorAll('.row .label')].map((el) => el.textContent),
+        closers: document.querySelectorAll('.row .secondary').length
+      })`)
+    )) ?? '{"items":[],"closers":0}'
   )
   check(
     '页签列表按钮展示已打开文件并可关闭',

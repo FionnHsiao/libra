@@ -23,7 +23,6 @@ const OUTLINE_SCRIPT = `(() => {
 
 export class PreviewHost {
   private readonly view: WebContentsView
-  private suppressed = false
 
   constructor(private readonly win: BrowserWindow) {
     this.view = new WebContentsView({
@@ -83,28 +82,7 @@ export class PreviewHost {
     await this.view.webContents.loadURL(toPreviewUrl(filePath))
   }
 
-  /** 弹层出现前先截一张当前画面，用来顶替被隐藏的原生视图（避免白屏） */
-  async capture(): Promise<string | null> {
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      try {
-        const image = await this.view.webContents.capturePage()
-        if (!image.isEmpty()) return image.toDataURL()
-      } catch {
-        /* 窗口还没画出第一帧，等一会再试 */
-      }
-      await new Promise((resolve) => setTimeout(resolve, 90))
-    }
-    return null
-  }
-
-  /** 弹层（菜单 / 右键菜单）出现时临时让出位置：原生视图永远盖在 DOM 之上，只能先隐藏 */
-  setSuppressed(suppressed: boolean): void {
-    this.suppressed = suppressed
-    this.view.setVisible(!suppressed)
-  }
-
   setBounds(rect: PreviewRect | null): void {
-    if (this.suppressed) return
     if (!rect || rect.width < 8 || rect.height < 8) {
       this.view.setVisible(false)
       return

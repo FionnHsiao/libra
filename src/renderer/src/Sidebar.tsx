@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useReducer, useRef, useState, type ReactElement } from 'react'
 import type { JarEntry, OutlineItem, TreeEntry } from '../../shared/protocol'
 import { FilesIcon } from './MenuBar'
+import { openOverlayMenu } from './overlayMenu'
 import { baseName, dirName } from './paths'
-import { popupOverlapsPreview, releasePreview, suppressPreview } from './previewSuppress'
 
 function ChevronIcon({ open }: { open: boolean }): ReactElement {
   return (
@@ -41,7 +41,7 @@ function FileIcon(): ReactElement {
 
 function PlusIcon(): ReactElement {
   return (
-    <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
       <path d="M8 3.4v9.2M3.4 8h9.2" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   )
@@ -49,33 +49,25 @@ function PlusIcon(): ReactElement {
 
 function RefreshIcon(): ReactElement {
   return (
-    <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
       <path d="M13 8a5 5 0 1 1-1.6-3.7" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
       <path d="M13.2 2.6v3.1H10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
 
-/** 两个箭头指向中间：折叠 */
 function CollapseIcon(): ReactElement {
   return (
     <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
-      <path
-        d="M6.9 1.2h2.2v3.2H6.9zM4.9 4.4h6.2L8 7.8zM6.9 14.8h2.2v-3.2H6.9zM4.9 11.6h6.2L8 8.2z"
-        fill="currentColor"
-      />
+      <path d="M6.9 1.2h2.2v3.2H6.9zM4.9 4.4h6.2L8 7.8zM6.9 14.8h2.2v-3.2H6.9zM4.9 11.6h6.2L8 8.2z" fill="currentColor" />
     </svg>
   )
 }
 
-/** 两个箭头分开朝外：展开 */
 function ExpandIcon(): ReactElement {
   return (
     <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
-      <path
-        d="M6.9 4.8h2.2v2.5H6.9zM4.9 4.8h6.2L8 1.4zM6.9 8.7h2.2V11.2H6.9zM4.9 11.2h6.2L8 14.6z"
-        fill="currentColor"
-      />
+      <path d="M6.9 4.8h2.2v2.5H6.9zM4.9 4.8h6.2L8 1.4zM6.9 8.7h2.2V11.2H6.9zM4.9 11.2h6.2L8 14.6z" fill="currentColor" />
     </svg>
   )
 }
@@ -127,7 +119,7 @@ interface TreeNodeProps {
   renaming: string | null
   onToggle: (path: string) => void
   onOpenFile: (path: string) => void
-  onContextMenu: (event: React.MouseEvent, entry: TreeEntry, isRoot: boolean) => Promise<void> | void
+  onContextMenu: (event: React.MouseEvent, entry: TreeEntry, isRoot: boolean) => void
   onRenameCommit: (entry: TreeEntry, value: string) => void
   onRenameCancel: () => void
   onRemove?: (path: string) => void
@@ -163,7 +155,7 @@ function TreeNode(props: TreeNodeProps): ReactElement {
         className={['tree-row', isRoot ? 'tree-root-row' : '', isActive ? 'active' : ''].filter(Boolean).join(' ')}
         style={{ paddingLeft: `${indent}px` }}
         title={entry.path}
-        onContextMenu={(event) => void onContextMenu(event, entry, Boolean(isRoot))}
+        onContextMenu={(event) => onContextMenu(event, entry, Boolean(isRoot))}
         onClick={() => {
           if (isRenaming) return
           if (isDir) onToggle(entry.path)
@@ -245,25 +237,9 @@ export function FileTree(props: FileTreeProps): ReactElement {
 
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(roots))
   const [renaming, setRenaming] = useState<string | null>(null)
-  const [menu, setMenu] = useState<{ x: number; y: number; entry: TreeEntry; isRoot: boolean } | null>(null)
-  const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null)
-  const suppressedRef = useRef(false)
-
-  const ensureSuppressed = useCallback(async (left: number, width: number) => {
-    if (suppressedRef.current) return
-    if (!popupOverlapsPreview(left, width)) return
-    suppressedRef.current = await suppressPreview()
-  }, [])
-
-  const releaseSuppressed = useCallback(() => {
-    if (!suppressedRef.current) return
-    suppressedRef.current = false
-    releasePreview()
-  }, [])
 
   const entriesRef = useRef<Record<string, TreeEntry[]>>({})
   const [, bump] = useReducer((value: number) => value + 1, 0)
-  const listRef = useRef<HTMLDivElement | null>(null)
 
   const ensureLoaded = useCallback(async (path: string) => {
     if (entriesRef.current[path]) return
@@ -286,7 +262,6 @@ export function FileTree(props: FileTreeProps): ReactElement {
     for (const root of roots) void ensureLoaded(root)
   }, [roots.join('|'), ensureLoaded])
 
-  // 磁盘变化 → 重新读取对应目录
   useEffect(() => {
     const off = window.libra.onTreeChanged((payload) => {
       for (const key of Object.keys(entriesRef.current)) {
@@ -344,51 +319,43 @@ export function FileTree(props: FileTreeProps): ReactElement {
     bump()
   }, [ensureLoaded, expanded])
 
-  const closeMenu = useCallback(() => setMenu(null), [])
-
   const openAddMenu = useCallback(
-    async (event: React.MouseEvent) => {
+    (event: React.MouseEvent) => {
       event.stopPropagation()
       const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-      await ensureSuppressed(rect.left, 168)
-      setAddMenu({ x: Math.round(rect.left), y: Math.round(rect.bottom + 6) })
+      openOverlayMenu(
+        [
+          { type: 'item', label: '添加文件夹', onSelect: onAddDir },
+          { type: 'item', label: '添加文件', onSelect: onAddFile }
+        ],
+        { x: Math.round(rect.left), y: Math.round(rect.bottom + 6), width: 168 },
+        () => undefined
+      )
     },
-    [ensureSuppressed]
+    [onAddDir, onAddFile]
   )
 
-  useEffect(() => {
-    if (!menu && !addMenu) return undefined
-    const handleDown = (): void => {
-      setMenu(null)
-      setAddMenu(null)
-      releaseSuppressed()
-    }
-    const handleKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') handleDown()
-    }
-    document.addEventListener('mousedown', handleDown)
-    document.addEventListener('keydown', handleKey)
-    window.addEventListener('resize', handleDown)
-    return () => {
-      document.removeEventListener('mousedown', handleDown)
-      document.removeEventListener('keydown', handleKey)
-      window.removeEventListener('resize', handleDown)
-    }
-  }, [menu, addMenu, releaseSuppressed])
+  const openContextMenu = useCallback(
+    (event: React.MouseEvent, entry: TreeEntry, isRoot: boolean) => {
+      event.preventDefault()
+      event.stopPropagation()
 
-  const openMenu = useCallback(async (event: React.MouseEvent, entry: TreeEntry, isRoot: boolean) => {
-    event.preventDefault()
-    event.stopPropagation()
-    const width = 180
-    const height = isRoot ? 116 : 78
-    await ensureSuppressed(event.clientX, width)
-    setMenu({
-      x: Math.min(event.clientX, window.innerWidth - width - 8),
-      y: Math.min(event.clientY, window.innerHeight - height - 8),
-      entry,
-      isRoot
-    })
-  }, [ensureSuppressed])
+      const items = [
+        { type: 'item' as const, label: '重命名', onSelect: () => setRenaming(entry.path) },
+        {
+          type: 'item' as const,
+          label: '在文件夹中显示',
+          onSelect: () => window.libra.revealInFolder(entry.path)
+        }
+      ]
+      if (isRoot) {
+        items.push({ type: 'item' as const, label: '移出星星罐', onSelect: () => onRemoveEntry(entry.path) })
+      }
+
+      openOverlayMenu(items, { x: event.clientX, y: event.clientY, width: 176 }, () => undefined)
+    },
+    [onRemoveEntry]
+  )
 
   const commitRename = useCallback(
     async (entry: TreeEntry, value: string) => {
@@ -414,7 +381,7 @@ export function FileTree(props: FileTreeProps): ReactElement {
       <div className="jar-header">
         <span className="jar-title">星星罐</span>
         <span className="jar-actions" onClick={(event) => event.stopPropagation()}>
-          <button type="button" title="添加文件夹或文件" aria-label="添加" onClick={(event) => void openAddMenu(event)}>
+          <button type="button" title="添加文件夹或文件" aria-label="添加" onClick={openAddMenu}>
             <PlusIcon />
           </button>
           <button type="button" title="刷新文件列表" aria-label="刷新文件列表" onClick={() => void refreshAll()}>
@@ -432,7 +399,7 @@ export function FileTree(props: FileTreeProps): ReactElement {
         </span>
       </div>
 
-      <div className="tree-list" ref={listRef}>
+      <div className="tree-list">
         {entries.length === 0 ? (
           <p className="jar-empty">还没有内容。点上面的 + 添加文件夹，或者按 Ctrl+O 打开单个文件。</p>
         ) : (
@@ -449,7 +416,7 @@ export function FileTree(props: FileTreeProps): ReactElement {
                 renaming={renaming}
                 onToggle={toggle}
                 onOpenFile={onOpenFile}
-                onContextMenu={openMenu}
+                onContextMenu={openContextMenu}
                 onRenameCommit={commitRename}
                 onRenameCancel={() => setRenaming(null)}
                 onRemove={onRemoveEntry}
@@ -460,7 +427,7 @@ export function FileTree(props: FileTreeProps): ReactElement {
                 className={entry.path === activePath ? 'tree-row tree-file-row active' : 'tree-row tree-file-row'}
                 style={{ paddingLeft: '8px' }}
                 title={entry.path}
-                onContextMenu={(event) => openMenu(event, { name: baseName(entry.path), path: entry.path, kind: 'file' }, false)}
+                onContextMenu={(event) => openContextMenu(event, { name: baseName(entry.path), path: entry.path, kind: 'file' }, false)}
                 onClick={() => {
                   if (renaming !== entry.path) onOpenFile(entry.path)
                 }}
@@ -494,73 +461,6 @@ export function FileTree(props: FileTreeProps): ReactElement {
           )
         )}
       </div>
-
-      {addMenu ? (
-        <div className="context-menu" style={{ left: addMenu.x, top: addMenu.y }} onMouseDown={(event) => event.stopPropagation()}>
-          <button
-            type="button"
-            className="menu-item"
-            onClick={() => {
-              setAddMenu(null)
-              onAddDir()
-            }}
-          >
-            <span className="menu-check" />
-            <span className="menu-label">添加文件夹</span>
-          </button>
-          <button
-            type="button"
-            className="menu-item"
-            onClick={() => {
-              setAddMenu(null)
-              onAddFile()
-            }}
-          >
-            <span className="menu-check" />
-            <span className="menu-label">添加文件</span>
-          </button>
-        </div>
-      ) : null}
-
-      {menu ? (
-        <div className="context-menu" style={{ left: menu.x, top: menu.y }} onMouseDown={(event) => event.stopPropagation()}>
-          <button
-            type="button"
-            className="menu-item"
-            onClick={() => {
-              closeMenu()
-              setRenaming(menu.entry.path)
-            }}
-          >
-            <span className="menu-check" />
-            <span className="menu-label">重命名</span>
-          </button>
-          <button
-            type="button"
-            className="menu-item"
-            onClick={() => {
-              closeMenu()
-              window.libra.revealInFolder(menu.entry.path)
-            }}
-          >
-            <span className="menu-check" />
-            <span className="menu-label">在文件夹中显示</span>
-          </button>
-          {menu.isRoot ? (
-            <button
-              type="button"
-              className="menu-item"
-              onClick={() => {
-                closeMenu()
-                onRemoveEntry(menu.entry.path)
-              }}
-            >
-              <span className="menu-check" />
-              <span className="menu-label">移出星星罐</span>
-            </button>
-          ) : null}
-        </div>
-      ) : null}
     </aside>
   )
 }

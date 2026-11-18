@@ -7,6 +7,7 @@ import {
   HTML_EXTENSIONS,
   MAX_DOCUMENT_BYTES,
   type DirListing,
+  type OverlayOpenPayload,
   type FileEntry,
   type FolderListing,
   type PreviewRect,
@@ -17,6 +18,7 @@ import { readDocument, writeTextAtomic } from './files'
 import { loadEntries, saveEntries } from './settings'
 import { syncWatchers } from './watcher'
 import { adjustZoom, showShortcutsDialog } from './menu'
+import { getOverlayHost, getOverlayHostBySender } from './overlay'
 import { getPreviewHost } from './preview'
 
 const allowedExtensions = new Set<string>(ALLOWED_EXTENSIONS)
@@ -323,17 +325,29 @@ export function registerIpc(): void {
     getPreviewHost(win.webContents.id)?.reload()
   })
 
-  ipcMain.handle(CH.previewCapture, async (event): Promise<string | null> => {
+  ipcMain.on(CH.overlayOpen, (event, payload: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
-    if (!win) return null
-    const host = getPreviewHost(win.webContents.id)
-    return host ? host.capture() : null
+    if (!win || typeof payload !== 'object' || payload === null) return
+    getOverlayHost(win.webContents.id)?.open(payload as OverlayOpenPayload)
   })
 
-  ipcMain.on(CH.previewSuppress, (event, value: unknown) => {
-    const win = BrowserWindow.fromWebContents(event.sender)
-    if (!win) return
-    getPreviewHost(win.webContents.id)?.setSuppressed(value === true)
+  ipcMain.on(CH.overlayClose, (event) => {
+    const host = getOverlayHostBySender(event.sender.id)
+    host?.dismiss()
+  })
+
+  ipcMain.on(CH.overlayReady, (event) => {
+    getOverlayHostBySender(event.sender.id)?.pushData()
+  })
+
+  ipcMain.on(CH.overlayMeasure, (event, height: unknown) => {
+    if (typeof height !== 'number' || !Number.isFinite(height)) return
+    getOverlayHostBySender(event.sender.id)?.setHeight(height)
+  })
+
+  ipcMain.on(CH.overlaySelect, (event, id: unknown) => {
+    if (typeof id !== 'string') return
+    getOverlayHostBySender(event.sender.id)?.select(id)
   })
 
   ipcMain.on(CH.previewBounds, (event, rawRect: unknown) => {

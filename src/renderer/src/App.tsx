@@ -8,7 +8,7 @@ import { Editor } from './Editor'
 import { createEditorState, editorHooks } from './editorState'
 import { baseName, isInside } from './paths'
 import { ChevronDownIcon, GitIcon, HomeIcon, LibraMark, MenuBar, OutlineIcon, type MenuGroup } from './MenuBar'
-import { popupOverlapsPreview, releasePreview, suppressPreview } from './previewSuppress'
+import { closeOverlayMenu, installOverlayBridge, openOverlayList } from './overlayMenu'
 import { PreviewPane } from './PreviewPane'
 import { FileTree, OutlinePanel } from './Sidebar'
 
@@ -56,13 +56,12 @@ export function App(): ReactElement {
   const [outlineVisible, setOutlineVisible] = useState(false)
   const [leftWidth, setLeftWidth] = useState(244)
   const [rightWidth, setRightWidth] = useState(204)
-  const [tabList, setTabList] = useState<{ x: number; y: number } | null>(null)
+  const [tabListOpen, setTabListOpen] = useState(false)
 
   const tabsRef = useRef<Tab[]>([])
   const activePathRef = useRef<string | null>(null)
   const entriesRef = useRef<JarEntry[]>([])
   const viewRef = useRef<EditorView | null>(null)
-  const popupSuppressedRef = useRef(false)
 
   const commit = useCallback((next: Tab[]) => {
     tabsRef.current = next
@@ -339,18 +338,6 @@ export function App(): ReactElement {
     }, 80)
   }, [])
 
-  const ensureSuppress = useCallback(async (left: number, width: number) => {
-    if (popupSuppressedRef.current) return
-    if (!popupOverlapsPreview(left, width)) return
-    popupSuppressedRef.current = await suppressPreview()
-  }, [])
-
-  const releaseSuppress = useCallback(() => {
-    if (!popupSuppressedRef.current) return
-    popupSuppressedRef.current = false
-    releasePreview()
-  }, [])
-
   const startResize = useCallback(
     (side: 'left' | 'right', event: React.MouseEvent) => {
       event.preventDefault()
@@ -378,19 +365,35 @@ export function App(): ReactElement {
   )
 
   const openTabList = useCallback(
-    async (event: React.MouseEvent) => {
-      if (tabList) {
-        setTabList(null)
-        releaseSuppress()
+    (event: React.MouseEvent) => {
+      if (tabListOpen) {
+        closeOverlayMenu()
+        setTabListOpen(false)
         return
       }
+
       const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
       const width = 268
-      const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))
-      await ensureSuppress(left, width)
-      setTabList({ x: left, y: Math.round(rect.bottom + 8) })
+      const x = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))
+
+      const rows = tabsRef.current.map((tab) => ({
+        label: baseName(tab.path),
+        checked: tab.path === activePathRef.current,
+        closeLabel: '×',
+        onSelect: () => {
+          activate(tab.path)
+          setTabListOpen(false)
+        },
+        onClose: () => {
+          setTabListOpen(false)
+          void closeTab(tab.path)
+        }
+      }))
+
+      openOverlayList(rows, { x: Math.round(x), y: Math.round(rect.bottom + 8), width }, () => setTabListOpen(false))
+      setTabListOpen(true)
     },
-    [ensureSuppress, releaseSuppress, tabList]
+    [activate, closeTab, tabListOpen]
   )
 
   const editorCommand = useCallback((action: 'undo' | 'redo') => {
@@ -431,6 +434,8 @@ export function App(): ReactElement {
   useEffect(() => {
     if (window.libra.platform === 'darwin') document.body.classList.add('platform-mac')
   }, [])
+
+  useEffect(() => installOverlayBridge(), [])
 
   useEffect(() => {
     window.libra.setDirty(tabs.some((tab) => tab.dirty))
@@ -540,28 +545,6 @@ export function App(): ReactElement {
       window.removeEventListener('drop', handleDrop)
     }
   }, [openFile])
-
-  useEffect(() => {
-    if (!tabList) return undefined
-    const close = (): void => {
-      setTabList(null)
-      releaseSuppress()
-    }
-    const handleDown = (event: MouseEvent): void => {
-      const target = event.target as HTMLElement
-      if (target.closest('.tab-list-menu') || target.closest('.tab-list-toggle')) return
-      close()
-    }
-    const handleKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') close()
-    }
-    document.addEventListener('mousedown', handleDown)
-    document.addEventListener('keydown', handleKey)
-    return () => {
-      document.removeEventListener('mousedown', handleDown)
-      document.removeEventListener('keydown', handleKey)
-    }
-  }, [tabList, releaseSuppress])
 
   useEffect(() => {
     const container = document.querySelector('.tabs') as HTMLElement | null
@@ -789,7 +772,7 @@ export function App(): ReactElement {
               ) : null}
               <button
                 type="button"
-                className={tabList ? 'icon-btn tab-list-toggle on' : 'icon-btn tab-list-toggle'}
+                className={tabListOpen ? 'icon-btn tab-list-toggle on' : 'icon-btn tab-list-toggle'}
                 title="已打开的文件"
                 aria-label="已打开的文件"
                 onClick={(event) => void openTabList(event)}
@@ -832,39 +815,6 @@ export function App(): ReactElement {
           ) : null}
         </div>
       </div>
-      {tabList ? (
-        <div
-          className="context-menu tab-list-menu"
-          style={{ left: tabList.x, top: tabList.y }}
-          onMouseDown={(event) => event.stopPropagation()}
-        >
-          {tabs.map((tab) => (
-            <div key={tab.path} className={tab.path === activePath ? 'tab-list-item active' : 'tab-list-item'}>
-              <button
-                type="button"
-                className="tab-list-name"
-                title={tab.path}
-                onClick={() => {
-                  activate(tab.path)
-                  setTabList(null)
-                  releaseSuppress()
-                }}
-              >
-                <span className="tab-list-label">{baseName(tab.path)}</span>
-                {tab.dirty ? <span className="tab-dot" /> : null}
-              </button>
-              <button
-                type="button"
-                className="tab-list-close"
-                aria-label="关闭"
-                onClick={() => void closeTab(tab.path)}
-              >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : null}
 
     </div>
   )

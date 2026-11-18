@@ -6,6 +6,7 @@ import { installMenu } from './menu'
 import { isDirty, registerIpc, requestSaveFromRenderer } from './ipc'
 import { loadEntries } from './settings'
 import { syncWatchers } from './watcher'
+import { createOverlayHost, disposeOverlayHost } from './overlay'
 import { createPreviewHost, disposePreviewHost } from './preview'
 import { installPreviewProtocol, registerPreviewScheme } from './protocol'
 import { createMainWindow } from './window'
@@ -66,6 +67,7 @@ function createWindow(): void {
 
   const contentsId = win.webContents.id
   createPreviewHost(win)
+  createOverlayHost(win)
 
   win.on('close', (event) => {
     if (allowClose || !isDirty()) return
@@ -75,6 +77,7 @@ function createWindow(): void {
 
   win.on('closed', () => {
     disposePreviewHost(contentsId)
+    disposeOverlayHost(contentsId)
     mainWindow = null
     rendererReady = false
   })
