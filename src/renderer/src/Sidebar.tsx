@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState, type ReactElement } from 'react'
-import type { OutlineItem, TreeEntry } from '../../shared/protocol'
+import type { JarEntry, OutlineItem, TreeEntry } from '../../shared/protocol'
 import { FilesIcon } from './MenuBar'
 import { baseName, dirName } from './paths'
 
@@ -215,11 +215,11 @@ function TreeNode(props: TreeNodeProps): ReactElement {
 }
 
 interface FileTreeProps {
-  jars: string[]
+  entries: JarEntry[]
   activePath: string | null
   onOpenFile: (path: string) => void
-  onAddJar: () => void
-  onRemoveJar: (path: string) => void
+  onAddDir: () => void
+  onRemoveEntry: (path: string) => void
   onHide: () => void
   onRenamed: (from: string, to: string) => void
   onError: (message: string) => void
@@ -228,9 +228,10 @@ interface FileTreeProps {
 const EXPAND_BUDGET = 200
 
 export function FileTree(props: FileTreeProps): ReactElement {
-  const { jars, activePath, onOpenFile, onAddJar, onRemoveJar, onHide, onRenamed, onError } = props
+  const { entries, activePath, onOpenFile, onAddDir, onRemoveEntry, onHide, onRenamed, onError } = props
+  const roots = entries.filter((entry) => entry.kind === 'dir').map((entry) => entry.path)
 
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(jars))
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(roots))
   const [renaming, setRenaming] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ x: number; y: number; entry: TreeEntry; isRoot: boolean } | null>(null)
 
@@ -253,11 +254,11 @@ export function FileTree(props: FileTreeProps): ReactElement {
   useEffect(() => {
     setExpanded((prev) => {
       const next = new Set(prev)
-      for (const jar of jars) next.add(jar)
+      for (const root of roots) next.add(root)
       return next
     })
-    for (const jar of jars) void ensureLoaded(jar)
-  }, [jars, ensureLoaded])
+    for (const root of roots) void ensureLoaded(root)
+  }, [roots.join('|'), ensureLoaded])
 
   // 磁盘变化 → 重新读取对应目录
   useEffect(() => {
@@ -289,14 +290,14 @@ export function FileTree(props: FileTreeProps): ReactElement {
   )
 
   const toggleAll = useCallback(async () => {
-    const hasOpenSub = [...expanded].some((path) => !jars.includes(path))
+    const hasOpenSub = [...expanded].some((path) => !roots.includes(path))
     if (hasOpenSub) {
-      setExpanded(new Set(jars))
+      setExpanded(new Set(roots))
       return
     }
 
     const next = new Set(expanded)
-    const queue = [...jars]
+    const queue = [...roots]
     let budget = EXPAND_BUDGET
 
     while (queue.length > 0 && budget > 0) {
@@ -310,7 +311,7 @@ export function FileTree(props: FileTreeProps): ReactElement {
     }
 
     setExpanded(next)
-  }, [ensureLoaded, expanded, jars])
+  }, [ensureLoaded, expanded, roots.join('|')])
 
   const refreshAll = useCallback(async () => {
     const dirs = [...expanded]
@@ -374,7 +375,7 @@ export function FileTree(props: FileTreeProps): ReactElement {
       <div className="jar-header">
         <span className="jar-title">星星罐</span>
         <span className="jar-actions" onClick={(event) => event.stopPropagation()}>
-          <button type="button" title="添加星星罐（选择一个文件夹）" aria-label="添加星星罐" onClick={onAddJar}>
+          <button type="button" title="添加文件夹（展开成目录树）" aria-label="添加文件夹" onClick={onAddDir}>
             <PlusIcon />
           </button>
           <button type="button" title="刷新文件列表" aria-label="刷新文件列表" onClick={() => void refreshAll()}>
@@ -390,27 +391,65 @@ export function FileTree(props: FileTreeProps): ReactElement {
       </div>
 
       <div className="tree-list" ref={listRef}>
-        {jars.length === 0 ? (
-          <p className="jar-empty">还没有星星罐。点上面的 + 选一个文件夹，它就成了一个星星罐。</p>
+        {entries.length === 0 ? (
+          <p className="jar-empty">还没有内容。点上面的 + 添加文件夹，或者按 Ctrl+O 打开单个文件。</p>
         ) : (
-          jars.map((jar) => (
-            <TreeNode
-              key={jar}
-              entry={{ name: baseName(jar), path: jar, kind: 'dir' }}
-              depth={0}
-              activePath={activePath}
-              isRoot
-              expanded={expanded}
-              entries={entriesRef.current}
-              renaming={renaming}
-              onToggle={toggle}
-              onOpenFile={onOpenFile}
-              onContextMenu={openMenu}
-              onRenameCommit={commitRename}
-              onRenameCancel={() => setRenaming(null)}
-              onRemove={onRemoveJar}
-            />
-          ))
+          entries.map((entry) =>
+            entry.kind === 'dir' ? (
+              <TreeNode
+                key={entry.path}
+                entry={{ name: baseName(entry.path), path: entry.path, kind: 'dir' }}
+                depth={0}
+                activePath={activePath}
+                isRoot
+                expanded={expanded}
+                entries={entriesRef.current}
+                renaming={renaming}
+                onToggle={toggle}
+                onOpenFile={onOpenFile}
+                onContextMenu={openMenu}
+                onRenameCommit={commitRename}
+                onRenameCancel={() => setRenaming(null)}
+                onRemove={onRemoveEntry}
+              />
+            ) : (
+              <div
+                key={entry.path}
+                className={entry.path === activePath ? 'tree-row tree-file-row active' : 'tree-row tree-file-row'}
+                style={{ paddingLeft: '8px' }}
+                title={entry.path}
+                onContextMenu={(event) => openMenu(event, { name: baseName(entry.path), path: entry.path, kind: 'file' }, false)}
+                onClick={() => {
+                  if (renaming !== entry.path) onOpenFile(entry.path)
+                }}
+              >
+                <span className="tree-chevron" />
+                <FileIcon />
+                {renaming === entry.path ? (
+                  <RenameInput
+                    defaultValue={baseName(entry.path)}
+                    onCommit={(value) => void commitRename({ name: baseName(entry.path), path: entry.path, kind: 'file' }, value)}
+                    onCancel={() => setRenaming(null)}
+                  />
+                ) : (
+                  <span className="tree-label">{baseName(entry.path)}</span>
+                )}
+                <span className="tree-remove">
+                  <button
+                    type="button"
+                    title="移出星星罐（不删除文件）"
+                    aria-label="移出星星罐"
+                    onClick={(event) => {
+                      event.stopPropagation()
+                      onRemoveEntry(entry.path)
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
+              </div>
+            )
+          )
         )}
       </div>
 
@@ -444,7 +483,7 @@ export function FileTree(props: FileTreeProps): ReactElement {
               className="menu-item"
               onClick={() => {
                 closeMenu()
-                onRemoveJar(menu.entry.path)
+                onRemoveEntry(menu.entry.path)
               }}
             >
               <span className="menu-check" />

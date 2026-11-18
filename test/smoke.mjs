@@ -13,6 +13,14 @@ const hash = () => createHash('sha256').update(fs.readFileSync(FIXTURE)).digest(
 const before = hash()
 
 const { default: electronPath } = await import('electron')
+
+fs.mkdirSync(PROFILE, { recursive: true })
+fs.writeFileSync(
+  path.join(PROFILE, 'settings.json'),
+  JSON.stringify({ entries: [{ kind: 'dir', path: path.dirname(path.resolve(FIXTURE)) }] }, null, 2),
+  'utf8'
+)
+
 const child = spawn(electronPath, ['.', FIXTURE, `--remote-debugging-port=${PORT}`, `--user-data-dir=${PROFILE}`], {
   cwd: PROJECT,
   stdio: ['ignore', 'pipe', 'pipe']
@@ -229,12 +237,13 @@ try {
   check('关闭标签页后回到上一个文档', afterClose.tabs === 1 && afterClose.active === 'sample-gbk.html', `${afterClose.tabs} 个，当前 ${afterClose.active}`)
 
   const settingsPath = path.join(PROFILE, 'settings.json')
-  const savedJars = fs.existsSync(settingsPath) ? JSON.parse(fs.readFileSync(settingsPath, 'utf8')).jars : []
+  const savedSettings = fs.existsSync(settingsPath) ? JSON.parse(fs.readFileSync(settingsPath, 'utf8')) : {}
+  const savedEntries = Array.isArray(savedSettings.entries) ? savedSettings.entries : []
   const normalizePath = (value) => value.replace(/\\/g, '/').toLowerCase()
   check(
     '星星罐写入设置文件',
-    savedJars.some((item) => normalizePath(item) === normalizePath(path.dirname(FIXTURE))),
-    `${savedJars.length} 个：${savedJars.join(' | ').slice(0, 80)}`
+    savedEntries.some((item) => normalizePath(item.path) === normalizePath(path.dirname(FIXTURE))),
+    `${savedEntries.length} 条：${savedEntries.map((item) => item.kind + ':' + item.path).join(' | ').slice(0, 90)}`
   )
 
   // ---- 右键重命名 ----
@@ -294,6 +303,39 @@ try {
   check('磁盘新增文件自动出现在树里', rowsAfterProbe.includes('watcher-probe.html'), `${rowsAfterProbe.length} 行`)
   fs.unlinkSync(probe)
   await sleep(600)
+
+  // ---- 打开单个文件：只在星星罐里放一条文件，不展开同级目录 ----
+  const soloDir = path.join(os.tmpdir(), 'libra-solo')
+  fs.mkdirSync(soloDir, { recursive: true })
+  const soloFile = path.join(soloDir, '独立.html')
+  fs.writeFileSync(soloFile, '<!doctype html><meta charset="utf-8"><h1>独立</h1>', 'utf8')
+  fs.writeFileSync(path.join(soloDir, '同级文件.html'), '<!doctype html><meta charset="utf-8"><h1>同级</h1>', 'utf8')
+
+  await new Promise((resolve) => {
+    const second = spawn(electronPath, ['.', soloFile, `--user-data-dir=${PROFILE}`], { cwd: PROJECT, stdio: 'ignore' })
+    const timer = setTimeout(() => {
+      execFile('taskkill', ['/PID', String(second.pid), '/T', '/F'], () => resolve())
+    }, 2500)
+    second.on('exit', () => {
+      clearTimeout(timer)
+      resolve()
+    })
+  })
+  await sleep(2200)
+
+  const solo = JSON.parse(
+    await shell.evaluate(`JSON.stringify({
+      fileRows: [...document.querySelectorAll('.tree-file-row .tree-label')].map((el) => el.textContent),
+      allRows: [...document.querySelectorAll('.panel-left .tree-row .tree-label')].map((el) => el.textContent)
+    })`)
+  )
+  check(
+    '打开单个文件只加一条，不展开同级目录',
+    solo.fileRows.includes('独立.html') &&
+      !solo.allRows.includes('同级文件.html') &&
+      !solo.allRows.includes('libra-solo'),
+    `文件条目 ${solo.fileRows.join(', ')}；全部 ${solo.allRows.join(', ')}`
+  )
 } finally {
   preview?.close()
   shell?.close()

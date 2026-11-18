@@ -2,6 +2,11 @@ export type Eol = 'LF' | 'CRLF'
 
 export type ViewMode = 'read' | 'edit'
 
+export interface JarEntry {
+  kind: 'dir' | 'file'
+  path: string
+}
+
 export interface DocumentData {
   path: string
   text: string
@@ -110,8 +115,8 @@ export interface LibraApi {
   listFolder(dir: string): Promise<FolderListing>
   pickFolder(): Promise<string | null>
   renamePath(path: string, name: string): Promise<string>
-  getJars(): Promise<string[]>
-  setJars(jars: string[]): void
+  getEntries(): Promise<JarEntry[]>
+  setEntries(entries: JarEntry[]): void
   readDir(dir: string): Promise<DirListing>
   confirmDiscard(): Promise<boolean>
   loadPreview(path: string): Promise<void>
@@ -144,8 +149,8 @@ export const CH = {
   pickFolder: 'libra:folder:pick',
   renamePath: 'libra:file:rename',
   treeChanged: 'libra:tree:changed',
-  jarsGet: 'libra:jars:get',
-  jarsSet: 'libra:jars:set',
+  entriesGet: 'libra:entries:get',
+  entriesSet: 'libra:entries:set',
   readDir: 'libra:folder:read-dir',
   confirmDiscard: 'libra:editor:confirm-discard',
   setDirty: 'libra:editor:set-dirty',

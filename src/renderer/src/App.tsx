@@ -3,10 +3,10 @@ import type { EditorView } from '@codemirror/view'
 import { redo, undo } from '@codemirror/commands'
 import { openSearchPanel } from '@codemirror/search'
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
-import type { DocumentData, OutlineItem, PreviewRect, ViewMode } from '../../shared/protocol'
+import type { DocumentData, JarEntry, OutlineItem, PreviewRect, ViewMode } from '../../shared/protocol'
 import { Editor } from './Editor'
 import { createEditorState, editorHooks } from './editorState'
-import { baseName, dirName, isInside } from './paths'
+import { baseName, isInside } from './paths'
 import { GitIcon, HomeIcon, LibraMark, MenuBar, OutlineIcon, type MenuGroup } from './MenuBar'
 import { PreviewPane } from './PreviewPane'
 import { FileTree, OutlinePanel } from './Sidebar'
@@ -46,7 +46,7 @@ function EmptyState({ onOpen }: { onOpen: () => void }): ReactElement {
 export function App(): ReactElement {
   const [tabs, setTabs] = useState<Tab[]>([])
   const [activePath, setActivePath] = useState<string | null>(null)
-  const [jars, setJars] = useState<string[]>([])
+  const [entries, setEntries] = useState<JarEntry[]>([])
   const [mode, setMode] = useState<ViewMode>('read')
   const [cursor, setCursor] = useState<Cursor>({ line: 1, column: 1 })
   const [outline, setOutline] = useState<OutlineItem[]>([])
@@ -56,7 +56,7 @@ export function App(): ReactElement {
 
   const tabsRef = useRef<Tab[]>([])
   const activePathRef = useRef<string | null>(null)
-  const jarsRef = useRef<string[]>([])
+  const entriesRef = useRef<JarEntry[]>([])
   const viewRef = useRef<EditorView | null>(null)
 
   const commit = useCallback((next: Tab[]) => {
@@ -80,31 +80,39 @@ export function App(): ReactElement {
     setActivePath(path)
   }, [])
 
-  const commitJars = useCallback((next: string[]) => {
-    jarsRef.current = next
-    setJars(next)
-    window.libra.setJars(next)
+  const commitEntries = useCallback((next: JarEntry[]) => {
+    entriesRef.current = next
+    setEntries(next)
+    window.libra.setEntries(next)
   }, [])
 
-  const ensureRoot = useCallback(
+  /** 打开单个文件时，只往星星罐里放一条"文件"，不展开它所在的目录 */
+  const ensureEntry = useCallback(
     (path: string) => {
-      if (jarsRef.current.some((root) => isInside(root, path))) return
-      commitJars([...jarsRef.current, dirName(path)])
+      const list = entriesRef.current
+      const covered = list.some((entry) => entry.kind === 'dir' && isInside(entry.path, path))
+      if (covered) return
+      if (list.some((entry) => entry.kind === 'file' && entry.path.toLowerCase() === path.toLowerCase())) return
+      commitEntries([...list, { kind: 'file', path }])
     },
-    [commitJars]
+    [commitEntries]
   )
 
-  const addJar = useCallback(async () => {
+  const addDir = useCallback(async () => {
     try {
       const dir = await window.libra.pickFolder()
       if (!dir) return
       setFilesVisible(true)
-      if (jarsRef.current.some((root) => root.toLowerCase() === dir.toLowerCase())) return
-      commitJars([...jarsRef.current, dir])
+      if (entriesRef.current.some((entry) => entry.kind === 'dir' && entry.path.toLowerCase() === dir.toLowerCase())) return
+      // 加目录时，把已经被这个目录覆盖的独立文件条目去掉，避免重复
+      const kept = entriesRef.current.filter(
+        (entry) => !(entry.kind === 'file' && isInside(dir, entry.path))
+      )
+      commitEntries([...kept, { kind: 'dir', path: dir }])
     } catch (error) {
       setStatus(describeError(error))
     }
-  }, [commitJars])
+  }, [commitEntries])
 
   const handleRenamed = useCallback(
     (from: string, to: string) => {
@@ -114,8 +122,14 @@ export function App(): ReactElement {
         return null
       }
 
-      const nextJars = jarsRef.current.map((jar) => (jar.toLowerCase() === from.toLowerCase() ? to : jar))
-      if (nextJars.some((jar, index) => jar !== jarsRef.current[index])) commitJars(nextJars)
+      let entriesChanged = false
+      const nextEntries = entriesRef.current.map((entry) => {
+        const mapped = mapPath(entry.path)
+        if (!mapped) return entry
+        entriesChanged = true
+        return { ...entry, path: mapped }
+      })
+      if (entriesChanged) commitEntries(nextEntries)
 
       let tabsChanged = false
       const nextTabs = tabsRef.current.map((tab) => {
@@ -133,22 +147,22 @@ export function App(): ReactElement {
         setActivePath(mapped)
       }
     },
-    [commit, commitJars]
+    [commit, commitEntries]
   )
 
-  const removeJar = useCallback(
+  const removeEntry = useCallback(
     (path: string) => {
-      commitJars(jarsRef.current.filter((item) => item.toLowerCase() !== path.toLowerCase()))
+      commitEntries(entriesRef.current.filter((entry) => entry.path.toLowerCase() !== path.toLowerCase()))
       setStatus('已移出星星罐（磁盘文件未删除）')
     },
-    [commitJars]
+    [commitEntries]
   )
 
   const openFile = useCallback(
     async (path: string) => {
       const existing = tabsRef.current.find((item) => item.path === path)
       if (existing) {
-        ensureRoot(path)
+        ensureEntry(path)
         activate(path)
         return
       }
@@ -157,13 +171,13 @@ export function App(): ReactElement {
         const data = await window.libra.read(path)
         const tab: Tab = { path: data.path, data, state: null, dirty: false }
         commit([...tabsRef.current, tab])
-        ensureRoot(data.path)
+        ensureEntry(data.path)
         activate(data.path)
       } catch (error) {
         setStatus(describeError(error))
       }
     },
-    [activate, commit, ensureRoot]
+    [activate, commit, ensureEntry]
   )
 
   const openViaDialog = useCallback(async () => {
@@ -174,18 +188,18 @@ export function App(): ReactElement {
       if (existing) {
         existing.data = data
         existing.state = null
-        ensureRoot(data.path)
+        ensureEntry(data.path)
         activate(data.path)
         return
       }
       const tab: Tab = { path: data.path, data, state: null, dirty: false }
       commit([...tabsRef.current, tab])
-      ensureRoot(data.path)
+      ensureEntry(data.path)
       activate(data.path)
     } catch (error) {
       setStatus(describeError(error))
     }
-  }, [activate, commit, ensureRoot])
+  }, [activate, commit, ensureEntry])
 
   const saveTab = useCallback(
     async (tab: Tab): Promise<boolean> => {
@@ -282,14 +296,14 @@ export function App(): ReactElement {
       ])
       activePathRef.current = result.path
       setActivePath(result.path)
-      ensureRoot(result.path)
+      ensureEntry(result.path)
       setStatus(`已另存为 ${baseName(result.path)}`)
       return true
     } catch (error) {
       setStatus(describeError(error))
       return false
     }
-  }, [commit, ensureRoot])
+  }, [commit, ensureEntry])
 
   const handleBounds = useCallback((rect: PreviewRect | null) => {
     window.libra.setPreviewBounds(rect)
@@ -332,14 +346,14 @@ export function App(): ReactElement {
 
   useEffect(() => {
     window.libra
-      .getJars()
+      .getEntries()
       .then((list) => {
         const merged = [...list]
-        for (const item of jarsRef.current) {
-          if (!merged.some((existing) => existing.toLowerCase() === item.toLowerCase())) merged.push(item)
+        for (const item of entriesRef.current) {
+          if (!merged.some((existing) => existing.path.toLowerCase() === item.path.toLowerCase())) merged.push(item)
         }
-        jarsRef.current = merged
-        setJars(merged)
+        entriesRef.current = merged
+        setEntries(merged)
       })
       .catch(() => undefined)
   }, [])
@@ -621,11 +635,11 @@ export function App(): ReactElement {
         <div className="workspace">
           {filesVisible ? (
             <FileTree
-              jars={jars}
+              entries={entries}
               activePath={activePath}
               onOpenFile={(path) => void openFile(path)}
-              onAddJar={() => void addJar()}
-              onRemoveJar={removeJar}
+              onAddDir={() => void addDir()}
+              onRemoveEntry={removeEntry}
               onHide={() => setFilesVisible(false)}
               onRenamed={handleRenamed}
               onError={setStatus}

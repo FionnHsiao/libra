@@ -14,7 +14,7 @@ import {
   type SavePayload
 } from '../shared/protocol'
 import { readDocument, writeTextAtomic } from './files'
-import { loadJars, saveJars } from './settings'
+import { loadEntries, saveEntries } from './settings'
 import { syncWatchers } from './watcher'
 import { adjustZoom, showShortcutsDialog } from './menu'
 import { getPreviewHost } from './preview'
@@ -222,15 +222,20 @@ export function registerIpc(): void {
     return { dir, entries }
   })
 
-  ipcMain.handle(CH.jarsGet, async (): Promise<string[]> => {
-    return loadJars()
+  ipcMain.handle(CH.entriesGet, async () => {
+    return loadEntries()
   })
 
-  ipcMain.on(CH.jarsSet, (_event, rawJars: unknown) => {
-    if (!Array.isArray(rawJars)) return
-    const jars = rawJars.filter((item): item is string => typeof item === 'string')
-    saveJars(jars)
-    syncWatchers(jars)
+  ipcMain.on(CH.entriesSet, (_event, rawEntries: unknown) => {
+    if (!Array.isArray(rawEntries)) return
+    const entries = rawEntries
+      .filter((item): item is { kind: 'dir' | 'file'; path: string } => {
+        if (typeof item !== 'object' || item === null) return false
+        const entry = item as { kind?: unknown; path?: unknown }
+        return (entry.kind === 'dir' || entry.kind === 'file') && typeof entry.path === 'string'
+      })
+    saveEntries(entries)
+    syncWatchers(entries.filter((entry) => entry.kind === 'dir').map((entry) => entry.path))
   })
 
   ipcMain.handle(CH.renamePath, async (_event, rawPath: unknown, rawName: unknown): Promise<string> => {
