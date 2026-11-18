@@ -565,19 +565,40 @@ button.primary:hover:not(:disabled) {
   color: var(--muted);
 }
 
-.tree-actions {
+.jar-header {
+  position: sticky;
+  top: -6px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 6px 0 8px;
+  margin-bottom: 2px;
+  border-radius: 6px;
+  background: var(--tree-bg);
+}
+
+.jar-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #6e6e73;
+}
+
+.jar-actions {
   margin-left: auto;
   display: none;
   align-items: center;
   gap: 1px;
-  flex-shrink: 0;
 }
 
-.tree-row:hover .tree-actions {
+.jar-header:hover .jar-actions {
   display: flex;
 }
 
-.tree-actions button {
+.jar-actions button,
+.tree-remove button {
   display: grid;
   place-items: center;
   width: 22px;
@@ -587,11 +608,35 @@ button.primary:hover:not(:disabled) {
   border-radius: 5px;
   background: transparent;
   color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
 }
 
-.tree-actions button:hover:not(:disabled) {
+.jar-actions button:hover:not(:disabled),
+.tree-remove button:hover:not(:disabled) {
   background: rgba(0, 0, 0, 0.09);
   color: var(--text);
+}
+
+.tree-remove {
+  margin-left: auto;
+  display: none;
+}
+
+.tree-row:hover .tree-remove {
+  display: block;
+}
+
+.jar-empty {
+  margin: 10px 8px;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.8;
+}
+
+.libra-mark {
+  flex-shrink: 0;
+  display: block;
 }
 
 /* ---- 大纲 ---- */

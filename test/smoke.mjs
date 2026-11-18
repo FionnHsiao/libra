@@ -85,6 +85,7 @@ try {
       outlinePanels: document.querySelectorAll('.panel-right').length,
       hasMenubar: document.querySelectorAll('.menubar-button').length,
       railButtons: document.querySelectorAll('.rail-btn').length,
+      jarTitle: document.querySelector('.jar-title')?.textContent ?? '',
       chromeBg: getComputedStyle(document.querySelector('.titlebar')).backgroundColor,
       railBg: getComputedStyle(document.querySelector('.rail')).backgroundColor,
       treeBg: getComputedStyle(document.querySelector('.panel-left')).backgroundColor,
@@ -93,6 +94,7 @@ try {
   )
   check('默认进入阅读模式（源码隐藏）', ui.hasEditor && ui.editorHidden, `display=${ui.editorHidden ? 'none' : 'block'}`)
   check('左侧文件树列出根目录与文件', ui.treeRows >= 3, `${ui.treeRows} 行，当前 ${ui.activeName}`)
+  check('文件树上方是星星罐标题', ui.jarTitle === '星星罐', ui.jarTitle)
   check(
     '顶栏与左侧图标栏同色、与文件树区分',
     ui.chromeBg === ui.railBg && ui.railBg !== ui.treeBg,
@@ -225,6 +227,15 @@ try {
     })`)
   )
   check('关闭标签页后回到上一个文档', afterClose.tabs === 1 && afterClose.active === 'sample-gbk.html', `${afterClose.tabs} 个，当前 ${afterClose.active}`)
+
+  const settingsPath = path.join(PROFILE, 'settings.json')
+  const savedJars = fs.existsSync(settingsPath) ? JSON.parse(fs.readFileSync(settingsPath, 'utf8')).jars : []
+  const normalizePath = (value) => value.replace(/\\/g, '/').toLowerCase()
+  check(
+    '星星罐写入设置文件',
+    savedJars.some((item) => normalizePath(item) === normalizePath(path.dirname(FIXTURE))),
+    `${savedJars.length} 个：${savedJars.join(' | ').slice(0, 80)}`
+  )
 } finally {
   preview?.close()
   shell?.close()

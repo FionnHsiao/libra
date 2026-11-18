@@ -108,6 +108,8 @@ export interface LibraApi {
   saveAs(payload: SaveAsPayload): Promise<{ path: string } | null>
   listFolder(dir: string): Promise<FolderListing>
   pickFolder(): Promise<string | null>
+  getJars(): Promise<string[]>
+  setJars(jars: string[]): void
   readDir(dir: string): Promise<DirListing>
   confirmDiscard(): Promise<boolean>
   loadPreview(path: string): Promise<void>
@@ -137,6 +139,8 @@ export const CH = {
   saveAs: 'libra:file:save-as',
   listFolder: 'libra:folder:list',
   pickFolder: 'libra:folder:pick',
+  jarsGet: 'libra:jars:get',
+  jarsSet: 'libra:jars:set',
   readDir: 'libra:folder:read-dir',
   confirmDiscard: 'libra:editor:confirm-discard',
   setDirty: 'libra:editor:set-dirty',

@@ -14,6 +14,7 @@ import {
   type SavePayload
 } from '../shared/protocol'
 import { readDocument, writeTextAtomic } from './files'
+import { loadJars, saveJars } from './settings'
 import { adjustZoom, showShortcutsDialog } from './menu'
 import { getPreviewHost } from './preview'
 
@@ -192,6 +193,16 @@ export function registerIpc(): void {
     })
 
     return { dir, entries }
+  })
+
+  ipcMain.handle(CH.jarsGet, async (): Promise<string[]> => {
+    return loadJars()
+  })
+
+  ipcMain.on(CH.jarsSet, (_event, rawJars: unknown) => {
+    if (!Array.isArray(rawJars)) return
+    const jars = rawJars.filter((item): item is string => typeof item === 'string')
+    saveJars(jars)
   })
 
   ipcMain.handle(CH.pickFolder, async (event): Promise<string | null> => {

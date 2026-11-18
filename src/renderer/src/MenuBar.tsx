@@ -87,6 +87,29 @@ export function MenuBar({ groups }: MenuBarProps): ReactElement {
   )
 }
 
+export function LibraMark(): ReactElement {
+  return (
+    <svg className="libra-mark" viewBox="0 0 32 32" width="21" height="21" aria-hidden="true">
+      <defs>
+        <linearGradient id="libra-mark-tile" x1="0" y1="0" x2="0.4" y2="1">
+          <stop offset="0" stopColor="#104346" />
+          <stop offset="1" stopColor="#05161d" />
+        </linearGradient>
+        <linearGradient id="libra-mark-glyph" gradientUnits="userSpaceOnUse" x1="9" y1="15" x2="23" y2="24">
+          <stop offset="0" stopColor="#5ff0e4" />
+          <stop offset="1" stopColor="#2f5af0" />
+        </linearGradient>
+      </defs>
+      <rect width="32" height="32" rx="8" fill="url(#libra-mark-tile)" />
+      <g fill="none" stroke="url(#libra-mark-glyph)" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M11.4 19.6V15.6A4.6 4.6 0 0 1 20.6 15.6V19.6" />
+        <path d="M9.2 19.6H22.8" />
+        <path d="M10.4 24.4H21.6" />
+      </g>
+    </svg>
+  )
+}
+
 export function HomeIcon(): ReactElement {
   return (
     <svg viewBox="0 0 16 16" width="17" height="17" aria-hidden="true">

@@ -104,10 +104,10 @@ interface TreeNodeProps {
   entries: Record<string, TreeEntry[]>
   onToggle: (path: string) => void
   onOpenFile: (path: string) => void
-  actions?: ReactElement | null
+  onRemove?: (path: string) => void
 }
 
-function TreeNode({ entry, depth, activePath, isRoot, expanded, entries, onToggle, onOpenFile, actions }: TreeNodeProps): ReactElement {
+function TreeNode({ entry, depth, activePath, isRoot, expanded, entries, onToggle, onOpenFile, onRemove }: TreeNodeProps): ReactElement {
   const isDir = entry.kind === 'dir'
   const open = isDir && expanded.has(entry.path)
   const isActive = !isDir && entry.path === activePath
@@ -134,7 +134,21 @@ function TreeNode({ entry, depth, activePath, isRoot, expanded, entries, onToggl
         <span className="tree-chevron">{isDir ? <ChevronIcon open={open} /> : null}</span>
         {isDir ? <FolderIcon open={open} /> : <FileIcon />}
         <span className="tree-label">{isRoot ? baseName(entry.path) : entry.name}</span>
-        {actions}
+        {isRoot && onRemove ? (
+          <span className="tree-remove">
+            <button
+              type="button"
+              title="移出星星罐（不会删除磁盘文件）"
+              aria-label="移出星星罐"
+              onClick={(event) => {
+                event.stopPropagation()
+                onRemove(entry.path)
+              }}
+            >
+              ×
+            </button>
+          </span>
+        ) : null}
       </div>
 
       {open ? (
@@ -164,16 +178,18 @@ function TreeNode({ entry, depth, activePath, isRoot, expanded, entries, onToggl
 }
 
 interface FileTreeProps {
-  roots: string[]
+  jars: string[]
   activePath: string | null
   onOpenFile: (path: string) => void
-  onAddRoot: () => void
+  onAddJar: () => void
+  onRemoveJar: (path: string) => void
   onHide: () => void
 }
 
 const EXPAND_BUDGET = 200
 
-export function FileTree({ roots, activePath, onOpenFile, onAddRoot, onHide }: FileTreeProps): ReactElement {
+export function FileTree({ jars, activePath, onOpenFile, onAddJar, onRemoveJar, onHide }: FileTreeProps): ReactElement {
+  const roots = jars
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(roots))
   const entriesRef = useRef<Record<string, TreeEntry[]>>({})
   const [, bump] = useReducer((value: number) => value + 1, 0)
@@ -265,40 +281,45 @@ export function FileTree({ roots, activePath, onOpenFile, onAddRoot, onHide }: F
     }, 150)
   }, [activePath, ensureLoaded, roots])
 
-  const actions = (
-    <span className="tree-actions" onClick={(event) => event.stopPropagation()}>
-      <button type="button" title="添加文件夹" aria-label="添加文件夹" onClick={onAddRoot}>
-        <PlusIcon />
-      </button>
-      <button type="button" title="定位到当前文件" aria-label="定位到当前文件" onClick={() => void locate()}>
-        <LocateIcon />
-      </button>
-      <button type="button" title="折叠 / 展开全部" aria-label="折叠或展开全部" onClick={() => void toggleAll()}>
-        <FoldIcon />
-      </button>
-      <button type="button" title="隐藏文件列表" aria-label="隐藏文件列表" onClick={onHide}>
-        <HideIcon />
-      </button>
-    </span>
-  )
-
   return (
     <aside className="panel-left">
+      <div className="jar-header">
+        <span className="jar-title">星星罐</span>
+        <span className="jar-actions" onClick={(event) => event.stopPropagation()}>
+          <button type="button" title="添加星星罐（选择一个文件夹）" aria-label="添加星星罐" onClick={onAddJar}>
+            <PlusIcon />
+          </button>
+          <button type="button" title="定位到当前文件" aria-label="定位到当前文件" onClick={() => void locate()}>
+            <LocateIcon />
+          </button>
+          <button type="button" title="折叠 / 展开全部" aria-label="折叠或展开全部" onClick={() => void toggleAll()}>
+            <FoldIcon />
+          </button>
+          <button type="button" title="隐藏文件列表" aria-label="隐藏文件列表" onClick={onHide}>
+            <HideIcon />
+          </button>
+        </span>
+      </div>
+
       <div className="tree-list" ref={listRef}>
-        {roots.map((root) => (
-          <TreeNode
-            key={root}
-            entry={{ name: baseName(root), path: root, kind: 'dir' }}
-            depth={0}
-            activePath={activePath}
-            isRoot
-            expanded={expanded}
-            entries={entriesRef.current}
-            onToggle={toggle}
-            onOpenFile={onOpenFile}
-            actions={actions}
-          />
-        ))}
+        {roots.length === 0 ? (
+          <p className="jar-empty">还没有星星罐。点上面的 + 选一个文件夹，它就成了一个星星罐。</p>
+        ) : (
+          roots.map((root) => (
+            <TreeNode
+              key={root}
+              entry={{ name: baseName(root), path: root, kind: 'dir' }}
+              depth={0}
+              activePath={activePath}
+              isRoot
+              expanded={expanded}
+              entries={entriesRef.current}
+              onToggle={toggle}
+              onOpenFile={onOpenFile}
+              onRemove={onRemoveJar}
+            />
+          ))
+        )}
       </div>
     </aside>
   )

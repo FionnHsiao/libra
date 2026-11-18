@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from 'rea
 import type { DocumentData, OutlineItem, PreviewRect, ViewMode } from '../../shared/protocol'
 import { Editor } from './Editor'
 import { createEditorState, editorHooks } from './editorState'
-import { FilesIcon, GitIcon, HomeIcon, MenuBar, OutlineIcon, type MenuGroup } from './MenuBar'
+import { FilesIcon, GitIcon, HomeIcon, LibraMark, MenuBar, OutlineIcon, type MenuGroup } from './MenuBar'
 import { PreviewPane } from './PreviewPane'
 import { FileTree, OutlinePanel } from './Sidebar'
 
@@ -62,7 +62,7 @@ function EmptyState({ onOpen }: { onOpen: () => void }): ReactElement {
 export function App(): ReactElement {
   const [tabs, setTabs] = useState<Tab[]>([])
   const [activePath, setActivePath] = useState<string | null>(null)
-  const [roots, setRoots] = useState<string[]>([])
+  const [jars, setJars] = useState<string[]>([])
   const [mode, setMode] = useState<ViewMode>('read')
   const [cursor, setCursor] = useState<Cursor>({ line: 1, column: 1 })
   const [outline, setOutline] = useState<OutlineItem[]>([])
@@ -72,7 +72,7 @@ export function App(): ReactElement {
 
   const tabsRef = useRef<Tab[]>([])
   const activePathRef = useRef<string | null>(null)
-  const rootsRef = useRef<string[]>([])
+  const jarsRef = useRef<string[]>([])
   const viewRef = useRef<EditorView | null>(null)
 
   const commit = useCallback((next: Tab[]) => {
@@ -96,26 +96,39 @@ export function App(): ReactElement {
     setActivePath(path)
   }, [])
 
-  const ensureRoot = useCallback((path: string) => {
-    if (rootsRef.current.some((root) => isInside(root, path))) return
-    const next = [...rootsRef.current, dirName(path)]
-    rootsRef.current = next
-    setRoots(next)
+  const commitJars = useCallback((next: string[]) => {
+    jarsRef.current = next
+    setJars(next)
+    window.libra.setJars(next)
   }, [])
 
-  const addRoot = useCallback(async () => {
+  const ensureRoot = useCallback(
+    (path: string) => {
+      if (jarsRef.current.some((root) => isInside(root, path))) return
+      commitJars([...jarsRef.current, dirName(path)])
+    },
+    [commitJars]
+  )
+
+  const addJar = useCallback(async () => {
     try {
       const dir = await window.libra.pickFolder()
       if (!dir) return
       setFilesVisible(true)
-      if (rootsRef.current.some((root) => root.toLowerCase() === dir.toLowerCase())) return
-      const next = [...rootsRef.current, dir]
-      rootsRef.current = next
-      setRoots(next)
+      if (jarsRef.current.some((root) => root.toLowerCase() === dir.toLowerCase())) return
+      commitJars([...jarsRef.current, dir])
     } catch (error) {
       setStatus(describeError(error))
     }
-  }, [])
+  }, [commitJars])
+
+  const removeJar = useCallback(
+    (path: string) => {
+      commitJars(jarsRef.current.filter((item) => item.toLowerCase() !== path.toLowerCase()))
+      setStatus('已移出星星罐（磁盘文件未删除）')
+    },
+    [commitJars]
+  )
 
   const openFile = useCallback(
     async (path: string) => {
@@ -302,6 +315,20 @@ export function App(): ReactElement {
       if (path) markDirty(path)
     }
   }, [markDirty])
+
+  useEffect(() => {
+    window.libra
+      .getJars()
+      .then((list) => {
+        const merged = [...list]
+        for (const item of jarsRef.current) {
+          if (!merged.some((existing) => existing.toLowerCase() === item.toLowerCase())) merged.push(item)
+        }
+        jarsRef.current = merged
+        setJars(merged)
+      })
+      .catch(() => undefined)
+  }, [])
 
   useEffect(() => {
     window.libra.setDirty(tabs.some((tab) => tab.dirty))
@@ -540,6 +567,7 @@ export function App(): ReactElement {
     <div className="app">
       <header className="titlebar">
         <div className="titlebar-left">
+          <LibraMark />
           <button
             type="button"
             className={filesVisible ? 'icon-btn files-toggle on' : 'icon-btn files-toggle'}
@@ -582,12 +610,13 @@ export function App(): ReactElement {
         </nav>
 
         <div className="workspace">
-          {filesVisible && roots.length > 0 ? (
+          {filesVisible ? (
             <FileTree
-              roots={roots}
+              jars={jars}
               activePath={activePath}
               onOpenFile={(path) => void openFile(path)}
-              onAddRoot={() => void addRoot()}
+              onAddJar={() => void addJar()}
+              onRemoveJar={removeJar}
               onHide={() => setFilesVisible(false)}
             />
           ) : null}
