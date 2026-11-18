@@ -55,6 +55,11 @@ try {
   await evaluate(`(() => { const row = [...document.querySelectorAll('.tree-row')].find((el) => el.textContent.trim() === '第3篇-读书笔记.html'); if (row) row.click() })()`)
   await sleep(1500)
 
+  await main(`(() => { const w = require('electron').BrowserWindow.getAllWindows()[0]; w.show(); w.focus(); w.moveTop(); return 'ok' })()`)
+  await sleep(500)
+  const canCapture = await evaluate(`(async () => { const d = await window.libra.capturePreview(); return d ? 'ok' : 'null' })()`)
+  console.log('capture check:', canCapture)
+
   // 采样：点「帮助」之后，弹层和冻结画面出现的先后
   const timeline = await evaluate(`(async () => {
     const samples = []
@@ -66,7 +71,7 @@ try {
       const frozen = !!document.querySelector('.preview-host')?.style.backgroundImage
       samples.push([Math.round(performance.now() - start), dropdown, frozen])
       if (dropdown && frozen) break
-      await new Promise((r) => setTimeout(r, 16))
+      await new Promise((r) => requestAnimationFrame(() => r()))
     }
     return JSON.stringify(samples)
   })()`)
@@ -74,6 +79,14 @@ try {
 
   await sleep(700)
   console.log(await grab(path.join(os.tmpdir(), 'help-menu.png')))
+
+  // 关闭菜单，检查定格图是否被清掉、视图是否复原
+  await evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
+  await sleep(60)
+  console.log('after close 60ms:', await evaluate(`JSON.stringify({ dropdown: document.querySelectorAll('.menu-dropdown').length, frozen: !!document.querySelector('.preview-host')?.style.backgroundImage })`))
+  await sleep(400)
+  console.log('after close 460ms:', await evaluate(`JSON.stringify({ dropdown: document.querySelectorAll('.menu-dropdown').length, frozen: !!document.querySelector('.preview-host')?.style.backgroundImage })`))
+  console.log(await grab(path.join(os.tmpdir(), 'help-closed.png')))
 
   mws.close()
   ws.close()

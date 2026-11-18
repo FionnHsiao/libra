@@ -1,4 +1,5 @@
 let depth = 0
+let generation = 0
 
 function hostElement(): HTMLElement | null {
   return document.querySelector('.preview-host') as HTMLElement | null
@@ -29,6 +30,7 @@ export function popupOverlapsPreview(left: number, width: number): boolean {
  */
 export async function suppressPreview(): Promise<boolean> {
   depth += 1
+  generation += 1
   if (depth > 1) return true
 
   const host = hostElement()
@@ -43,9 +45,26 @@ export async function suppressPreview(): Promise<boolean> {
       depth = Math.max(0, depth - 1)
       return false
     }
+
+    // 先把图片解码好，再贴到预览区。
+    // 否则背景图还没解码完视图就被隐藏，会露出底色闪一下白。
+    const image = new Image()
+    image.src = snapshot
+    try {
+      await image.decode()
+    } catch {
+      /* 解码失败也继续，最多退回一帧闪烁 */
+    }
+
     host.style.backgroundImage = `url(${snapshot})`
     host.style.backgroundSize = '100% 100%'
     host.style.backgroundRepeat = 'no-repeat'
+
+    // 等两帧，确保这张图真的画到屏幕上了，再让原生视图让位
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    })
+
     window.libra.setPreviewSuppressed(true)
     return true
   } catch {
@@ -58,11 +77,18 @@ export function releasePreview(): void {
   depth = Math.max(0, depth - 1)
   if (depth > 0) return
 
-  const host = hostElement()
-  if (host) {
+  // 先让原生视图回来，过一会儿再清掉定格图。
+  // 反过来（先清图再显示视图）中间会露出底色，关闭时闪一下。
+  window.libra.setPreviewSuppressed(false)
+
+  generation += 1
+  const current = generation
+  window.setTimeout(() => {
+    if (current !== generation) return
+    const host = hostElement()
+    if (!host) return
     host.style.backgroundImage = ''
     host.style.backgroundSize = ''
     host.style.backgroundRepeat = ''
-  }
-  window.libra.setPreviewSuppressed(false)
+  }, 150)
 }
