@@ -13,6 +13,7 @@ const api: LibraApi = {
   save: (payload) => ipcRenderer.invoke(CH.save, payload),
   saveAs: (payload) => ipcRenderer.invoke(CH.saveAs, payload),
   listFolder: (dir) => ipcRenderer.invoke(CH.listFolder, dir),
+  pickFolder: () => ipcRenderer.invoke(CH.pickFolder),
   readDir: (dir) => ipcRenderer.invoke(CH.readDir, dir),
   confirmDiscard: () => ipcRenderer.invoke(CH.confirmDiscard),
   loadPreview: (path) => ipcRenderer.invoke(CH.previewLoad, path),

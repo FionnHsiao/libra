@@ -62,7 +62,7 @@ function EmptyState({ onOpen }: { onOpen: () => void }): ReactElement {
 export function App(): ReactElement {
   const [tabs, setTabs] = useState<Tab[]>([])
   const [activePath, setActivePath] = useState<string | null>(null)
-  const [rootDir, setRootDir] = useState<string | null>(null)
+  const [roots, setRoots] = useState<string[]>([])
   const [mode, setMode] = useState<ViewMode>('read')
   const [cursor, setCursor] = useState<Cursor>({ line: 1, column: 1 })
   const [outline, setOutline] = useState<OutlineItem[]>([])
@@ -72,7 +72,7 @@ export function App(): ReactElement {
 
   const tabsRef = useRef<Tab[]>([])
   const activePathRef = useRef<string | null>(null)
-  const rootDirRef = useRef<string | null>(null)
+  const rootsRef = useRef<string[]>([])
   const viewRef = useRef<EditorView | null>(null)
 
   const commit = useCallback((next: Tab[]) => {
@@ -96,18 +96,32 @@ export function App(): ReactElement {
     setActivePath(path)
   }, [])
 
-  const setRoot = useCallback((path: string) => {
-    const dir = dirName(path)
-    if (rootDirRef.current && isInside(rootDirRef.current, path)) return
-    rootDirRef.current = dir
-    setRootDir(dir)
+  const ensureRoot = useCallback((path: string) => {
+    if (rootsRef.current.some((root) => isInside(root, path))) return
+    const next = [...rootsRef.current, dirName(path)]
+    rootsRef.current = next
+    setRoots(next)
+  }, [])
+
+  const addRoot = useCallback(async () => {
+    try {
+      const dir = await window.libra.pickFolder()
+      if (!dir) return
+      setFilesVisible(true)
+      if (rootsRef.current.some((root) => root.toLowerCase() === dir.toLowerCase())) return
+      const next = [...rootsRef.current, dir]
+      rootsRef.current = next
+      setRoots(next)
+    } catch (error) {
+      setStatus(describeError(error))
+    }
   }, [])
 
   const openFile = useCallback(
     async (path: string) => {
       const existing = tabsRef.current.find((item) => item.path === path)
       if (existing) {
-        setRoot(path)
+        ensureRoot(path)
         activate(path)
         return
       }
@@ -116,13 +130,13 @@ export function App(): ReactElement {
         const data = await window.libra.read(path)
         const tab: Tab = { path: data.path, data, state: null, dirty: false }
         commit([...tabsRef.current, tab])
-        setRoot(data.path)
+        ensureRoot(data.path)
         activate(data.path)
       } catch (error) {
         setStatus(describeError(error))
       }
     },
-    [activate, commit, setRoot]
+    [activate, commit, ensureRoot]
   )
 
   const openViaDialog = useCallback(async () => {
@@ -133,18 +147,18 @@ export function App(): ReactElement {
       if (existing) {
         existing.data = data
         existing.state = null
-        setRoot(data.path)
+        ensureRoot(data.path)
         activate(data.path)
         return
       }
       const tab: Tab = { path: data.path, data, state: null, dirty: false }
       commit([...tabsRef.current, tab])
-      setRoot(data.path)
+      ensureRoot(data.path)
       activate(data.path)
     } catch (error) {
       setStatus(describeError(error))
     }
-  }, [activate, commit, setRoot])
+  }, [activate, commit, ensureRoot])
 
   const saveTab = useCallback(
     async (tab: Tab): Promise<boolean> => {
@@ -241,14 +255,14 @@ export function App(): ReactElement {
       ])
       activePathRef.current = result.path
       setActivePath(result.path)
-      setRoot(result.path)
+      ensureRoot(result.path)
       setStatus(`已另存为 ${baseName(result.path)}`)
       return true
     } catch (error) {
       setStatus(describeError(error))
       return false
     }
-  }, [commit, setRoot])
+  }, [commit, ensureRoot])
 
   const handleBounds = useCallback((rect: PreviewRect | null) => {
     window.libra.setPreviewBounds(rect)
@@ -548,7 +562,10 @@ export function App(): ReactElement {
             className={mode === 'read' ? 'rail-btn on' : 'rail-btn'}
             title="主页：回到阅读视图"
             aria-label="主页"
-            onClick={() => setMode('read')}
+            onClick={() => {
+              setMode('read')
+              setFilesVisible(true)
+            }}
           >
             <HomeIcon />
           </button>
@@ -565,8 +582,14 @@ export function App(): ReactElement {
         </nav>
 
         <div className="workspace">
-          {filesVisible && rootDir ? (
-            <FileTree rootDir={rootDir} activePath={activePath} onOpenFile={(path) => void openFile(path)} />
+          {filesVisible && roots.length > 0 ? (
+            <FileTree
+              roots={roots}
+              activePath={activePath}
+              onOpenFile={(path) => void openFile(path)}
+              onAddRoot={() => void addRoot()}
+              onHide={() => setFilesVisible(false)}
+            />
           ) : null}
 
           <section className="center">

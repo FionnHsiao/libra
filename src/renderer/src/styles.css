@@ -1,16 +1,16 @@
 :root {
-  /* 背景板 → 文件树 → 正文 → 大纲：四层，卡片浮在背景板上 */
-  --backdrop: #e8e6e1;
-  --tree-bg: #f6f4ef;
-  --content-bg: #fdfcfa;
-  --outline-bg: #f1efe9;
-  --line: rgba(88, 78, 58, 0.11);
-  --text: #2c2a26;
-  --muted: #8b877e;
-  --accent: #a9743f;
-  --accent-strong: #8d5d2d;
-  --accent-soft: rgba(169, 116, 63, 0.12);
-  --hover: rgba(125, 110, 80, 0.085);
+  /* 冷色背景板 → 文件树 → 正文 → 大纲 */
+  --backdrop: #ececee;
+  --tree-bg: #f7f7f8;
+  --content-bg: #ffffff;
+  --outline-bg: #f4f4f5;
+  --line: rgba(0, 0, 0, 0.08);
+  --text: #1d1d1f;
+  --muted: #86868b;
+  --accent: #2f2f33;
+  --accent-strong: #1d1d1f;
+  --accent-soft: rgba(0, 0, 0, 0.055);
+  --hover: rgba(0, 0, 0, 0.045);
   --chrome-h: 38px;
   --title-h: 40px;
   --rail-w: 52px;
@@ -43,14 +43,14 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(120, 108, 84, 0.28);
+  background: rgba(0, 0, 0, 0.18);
   border: 3px solid transparent;
   background-clip: content-box;
   border-radius: 7px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(120, 108, 84, 0.42);
+  background: rgba(0, 0, 0, 0.3);
   background-clip: content-box;
 }
 
@@ -98,7 +98,7 @@ body {
 }
 
 .titlebar-title.status {
-  color: var(--accent-strong);
+  color: var(--text);
 }
 
 .titlebar-fill {
@@ -124,19 +124,19 @@ body {
   border: none;
   border-radius: 7px;
   background: transparent;
-  color: #4c463a;
+  color: #3c3c40;
   font-size: 13px;
   line-height: 20px;
 }
 
 .menubar-button:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.55);
+  background: rgba(0, 0, 0, 0.055);
   color: var(--text);
 }
 
 .menubar-button.open {
-  background: rgba(255, 255, 255, 0.9);
-  color: var(--accent-strong);
+  background: rgba(0, 0, 0, 0.075);
+  color: var(--text);
 }
 
 .menu-dropdown {
@@ -149,7 +149,7 @@ body {
   border: 1px solid var(--line);
   border-radius: 10px;
   background: #ffffff;
-  box-shadow: 0 14px 34px rgba(50, 40, 20, 0.16), 0 2px 6px rgba(50, 40, 20, 0.06);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
 .menu-item {
@@ -168,8 +168,8 @@ body {
 }
 
 .menu-item:hover:not(:disabled) {
-  background: var(--accent-soft);
-  color: var(--accent-strong);
+  background: var(--hover);
+  color: var(--text);
 }
 
 .menu-item:disabled {
@@ -180,7 +180,7 @@ body {
   width: 14px;
   flex-shrink: 0;
   font-size: 11px;
-  color: var(--accent);
+  color: var(--text);
 }
 
 .menu-label {
@@ -226,18 +226,18 @@ body {
   border: none;
   border-radius: 9px;
   background: transparent;
-  color: #6f6a60;
+  color: #6e6e73;
 }
 
 .rail-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.6);
+  background: rgba(0, 0, 0, 0.055);
   color: var(--text);
 }
 
 .rail-btn.on {
   background: var(--content-bg);
-  color: var(--accent-strong);
-  box-shadow: 0 1px 2px rgba(50, 40, 20, 0.08);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .rail-fill {
@@ -253,7 +253,7 @@ body {
   margin: 6px 10px 10px 4px;
   border-radius: var(--card-radius);
   background: var(--content-bg);
-  box-shadow: 0 0 0 1px rgba(70, 58, 34, 0.05), 0 2px 5px rgba(70, 58, 34, 0.05), 0 16px 34px rgba(70, 58, 34, 0.10);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 2px 5px rgba(0, 0, 0, 0.05), 0 16px 34px rgba(0, 0, 0, 0.09);
   overflow: hidden;
 }
 
@@ -263,6 +263,7 @@ body {
   overflow-y: auto;
   padding: 6px 6px 14px;
   background: var(--tree-bg);
+  border-right: 1px solid var(--line);
 }
 
 .center {
@@ -324,9 +325,9 @@ body {
 
 .tab.active {
   background: #ffffff;
-  border-color: var(--line);
+  border-color: rgba(0, 0, 0, 0.12);
   color: var(--text);
-  box-shadow: 0 1px 2px rgba(50, 40, 20, 0.05);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
 .tab-name {
@@ -339,7 +340,7 @@ body {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--accent);
+  background: #3a3a3f;
   flex-shrink: 0;
 }
 
@@ -420,8 +421,8 @@ body {
 }
 
 .icon-btn.on {
-  background: var(--accent-soft);
-  color: var(--accent-strong);
+  background: rgba(0, 0, 0, 0.07);
+  color: var(--text);
 }
 
 /* ---- 通用按钮 ---- */
@@ -431,7 +432,7 @@ button {
   font-size: 12px;
   padding: 5px 13px;
   border-radius: 7px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(0, 0, 0, 0.12);
   background: #ffffff;
   color: var(--text);
   cursor: pointer;
@@ -439,8 +440,8 @@ button {
 }
 
 button:hover:not(:disabled) {
-  border-color: rgba(169, 116, 63, 0.4);
-  color: var(--accent-strong);
+  border-color: rgba(0, 0, 0, 0.28);
+  color: var(--text);
 }
 
 button:disabled {
@@ -451,18 +452,18 @@ button:disabled {
 button.primary {
   background: var(--accent);
   border-color: transparent;
-  color: #fffaf2;
+  color: #ffffff;
   font-weight: 600;
 }
 
 button.primary:hover:not(:disabled) {
-  background: #b8804a;
-  color: #fffaf2;
+  background: #3d3d42;
+  color: #ffffff;
 }
 
 .segmented {
   display: flex;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 8px;
   overflow: hidden;
   background: #ffffff;
@@ -478,8 +479,8 @@ button.primary:hover:not(:disabled) {
 }
 
 .segmented button.on {
-  background: var(--accent-soft);
-  color: var(--accent-strong);
+  background: rgba(0, 0, 0, 0.07);
+  color: var(--text);
   font-weight: 600;
 }
 
@@ -494,9 +495,9 @@ button.primary:hover:not(:disabled) {
   align-items: center;
   gap: 6px;
   height: 29px;
-  padding-right: 8px;
+  padding-right: 6px;
   border-radius: 6px;
-  color: #4c463a;
+  color: #3c3c40;
   font-size: 12.5px;
   cursor: pointer;
   user-select: none;
@@ -510,17 +511,17 @@ button.primary:hover:not(:disabled) {
 .tree-root-row {
   position: sticky;
   top: -6px;
-  z-index: 1;
-  height: 34px;
+  z-index: 2;
+  height: 32px;
   background: var(--tree-bg);
   font-weight: 600;
-  color: #3d382e;
+  color: var(--text);
   border-radius: 6px;
 }
 
 .tree-row.active {
-  background: var(--accent-soft);
-  color: var(--accent-strong);
+  background: rgba(0, 0, 0, 0.07);
+  color: var(--text);
   font-weight: 600;
 }
 
@@ -542,7 +543,7 @@ button.primary:hover:not(:disabled) {
 
 .tree-icon {
   flex-shrink: 0;
-  color: #a89478;
+  color: #8f8f94;
 }
 
 .tree-row.active .tree-icon,
@@ -564,6 +565,35 @@ button.primary:hover:not(:disabled) {
   color: var(--muted);
 }
 
+.tree-actions {
+  margin-left: auto;
+  display: none;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+.tree-row:hover .tree-actions {
+  display: flex;
+}
+
+.tree-actions button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+}
+
+.tree-actions button:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.09);
+  color: var(--text);
+}
+
 /* ---- 大纲 ---- */
 
 .panel-head {
@@ -580,18 +610,11 @@ button.primary:hover:not(:disabled) {
 .panel-title {
   font-size: 11.5px;
   font-weight: 600;
-  color: #6b6559;
+  color: #6e6e73;
   letter-spacing: 0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.panel-count {
-  font-size: 11px;
-  color: var(--muted);
-  flex-shrink: 0;
-  font-variant-numeric: tabular-nums;
 }
 
 .panel-body {
@@ -617,7 +640,7 @@ button.primary:hover:not(:disabled) {
   border: none;
   border-radius: 6px;
   background: transparent;
-  color: #524c41;
+  color: #4a4a4f;
   font-size: 12px;
   line-height: 1.55;
   white-space: nowrap;
@@ -632,14 +655,14 @@ button.primary:hover:not(:disabled) {
 
 .outline-item.level-1 {
   font-weight: 600;
-  color: #3a362e;
+  color: var(--text);
 }
 
 .outline-item.level-3,
 .outline-item.level-4,
 .outline-item.level-5,
 .outline-item.level-6 {
-  color: #6b6559;
+  color: #6e6e73;
   font-size: 11.5px;
 }
 
@@ -699,15 +722,15 @@ button.primary:hover:not(:disabled) {
 }
 
 .empty-mark {
-  width: 54px;
-  height: 54px;
-  border-radius: 15px;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
   display: grid;
   place-items: center;
-  font-size: 23px;
+  font-size: 21px;
   font-weight: 700;
-  color: #fffaf0;
-  background: linear-gradient(140deg, #c08a4d, #9a6631);
+  color: #ffffff;
+  background: linear-gradient(140deg, #55555c, #2a2a2e);
   margin-bottom: 8px;
 }
 

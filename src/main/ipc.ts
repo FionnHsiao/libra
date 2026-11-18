@@ -194,6 +194,14 @@ export function registerIpc(): void {
     return { dir, entries }
   })
 
+  ipcMain.handle(CH.pickFolder, async (event): Promise<string | null> => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const options = { title: '添加文件夹', properties: ['openDirectory' as const] }
+    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+    if (result.canceled || result.filePaths.length === 0) return null
+    return resolve(result.filePaths[0])
+  })
+
   ipcMain.handle(CH.listFolder, async (_event, rawDir: unknown): Promise<FolderListing> => {
     const dir = assertDirectoryPath(rawDir)
     const dirents = await fs.readdir(dir, { withFileTypes: true })
