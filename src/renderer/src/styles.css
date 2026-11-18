@@ -275,6 +275,7 @@ body.platform-mac .titlebar-left {
   flex: 1;
   min-width: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: var(--chrome-h) minmax(0, 1fr);
   background: var(--content-bg);
 }
@@ -290,6 +291,7 @@ body.platform-mac .titlebar-left {
 /* ---- 标签栏 ---- */
 
 .tabbar {
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -305,7 +307,7 @@ body.platform-mac .titlebar-left {
   display: flex;
   align-items: center;
   gap: 3px;
-  justify-content: flex-end;
+  justify-content: flex-start;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;

@@ -565,8 +565,14 @@ export function App(): ReactElement {
   }, [tabList, releaseSuppress])
 
   useEffect(() => {
-    const element = document.querySelector('.tab.active')
-    element?.scrollIntoView({ inline: 'nearest', block: 'nearest' })
+    const container = document.querySelector('.tabs') as HTMLElement | null
+    const active = container?.querySelector('.tab.active') as HTMLElement | null
+    if (!container || !active) return
+
+    const box = container.getBoundingClientRect()
+    const tab = active.getBoundingClientRect()
+    if (tab.left < box.left) container.scrollLeft -= box.left - tab.left + 8
+    else if (tab.right > box.right) container.scrollLeft += tab.right - box.right + 8
   }, [activePath, tabs.length])
 
   useEffect(() => {
