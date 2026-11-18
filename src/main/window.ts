@@ -14,7 +14,7 @@ export function createMainWindow(): BrowserWindow {
     title: 'Libra',
     titleBarStyle: 'hidden',
     titleBarOverlay: {
-      color: '#f7f4ec',
+      color: '#e8e6e1',
       symbolColor: '#2f2c26',
       height: 40
     },

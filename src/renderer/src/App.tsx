@@ -564,11 +564,12 @@ export function App(): ReactElement {
           <div className="rail-fill" />
         </nav>
 
-        {filesVisible && rootDir ? (
-          <FileTree rootDir={rootDir} activePath={activePath} onOpenFile={(path) => void openFile(path)} />
-        ) : null}
+        <div className="workspace">
+          {filesVisible && rootDir ? (
+            <FileTree rootDir={rootDir} activePath={activePath} onOpenFile={(path) => void openFile(path)} />
+          ) : null}
 
-        <section className="center">
+          <section className="center">
           <div className="tabbar">
             <div className="tabs">
               {tabs.map((tab) => (
@@ -648,7 +649,8 @@ export function App(): ReactElement {
           </main>
         </section>
 
-        {outlineVisible && activeTab ? <OutlinePanel outline={outline} onJump={handleOutlineJump} /> : null}
+          {outlineVisible && activeTab ? <OutlinePanel outline={outline} onJump={handleOutlineJump} /> : null}
+        </div>
       </div>
     </div>
   )
