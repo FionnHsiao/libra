@@ -15,6 +15,7 @@ const api: LibraApi = {
   saveAs: (payload) => ipcRenderer.invoke(CH.saveAs, payload),
   listFolder: (dir) => ipcRenderer.invoke(CH.listFolder, dir),
   pickFolder: () => ipcRenderer.invoke(CH.pickFolder),
+  pickFile: () => ipcRenderer.invoke(CH.pickFile),
   renamePath: (path, name) => ipcRenderer.invoke(CH.renamePath, path, name),
   getEntries: () => ipcRenderer.invoke(CH.entriesGet),
   setEntries: (entries) => ipcRenderer.send(CH.entriesSet, entries),

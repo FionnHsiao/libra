@@ -247,6 +247,21 @@ export function registerIpc(): void {
     return next
   })
 
+  ipcMain.handle(CH.pickFile, async (event): Promise<string | null> => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    const options = {
+      title: '添加文件',
+      properties: ['openFile' as const],
+      filters: [
+        { name: 'HTML 文档', extensions: ['html', 'htm', 'xhtml'] },
+        { name: '全部文件', extensions: ['*'] }
+      ]
+    }
+    const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
+    if (result.canceled || result.filePaths.length === 0) return null
+    return resolve(result.filePaths[0])
+  })
+
   ipcMain.handle(CH.pickFolder, async (event): Promise<string | null> => {
     const win = BrowserWindow.fromWebContents(event.sender)
     const options = { title: '添加文件夹', properties: ['openDirectory' as const] }

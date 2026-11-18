@@ -103,6 +103,18 @@ try {
   check('默认进入阅读模式（源码隐藏）', ui.hasEditor && ui.editorHidden, `display=${ui.editorHidden ? 'none' : 'block'}`)
   check('左侧文件树列出根目录与文件', ui.treeRows >= 3, `${ui.treeRows} 行，当前 ${ui.activeName}`)
   check('文件树上方是星星罐标题', ui.jarTitle === '星星罐', ui.jarTitle)
+
+  const jarButtons = await shell.evaluate(`document.querySelectorAll('.jar-actions button').length`)
+  check('星星罐标题有五个操作按钮', jarButtons === 5, `${jarButtons} 个`)
+
+  await shell.evaluate(`document.querySelector('.jar-actions button').click()`)
+  await sleep(300)
+  const addItems = JSON.parse(
+    await shell.evaluate(`JSON.stringify([...document.querySelectorAll('.context-menu .menu-label')].map((el) => el.textContent))`)
+  )
+  check('加号可添加文件夹或文件', addItems.join(',') === '添加文件夹,添加文件', addItems.join(','))
+  await shell.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
+  await sleep(200)
   check(
     '顶栏与左侧图标栏同色、与文件树区分',
     ui.chromeBg === ui.railBg && ui.railBg !== ui.treeBg,

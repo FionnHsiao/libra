@@ -201,6 +201,17 @@ export function App(): ReactElement {
     }
   }, [activate, commit, ensureEntry])
 
+  const addFile = useCallback(async () => {
+    try {
+      const path = await window.libra.pickFile()
+      if (!path) return
+      setFilesVisible(true)
+      await openFile(path)
+    } catch (error) {
+      setStatus(describeError(error))
+    }
+  }, [openFile])
+
   const saveTab = useCallback(
     async (tab: Tab): Promise<boolean> => {
       if (!tab.state) return true
@@ -639,6 +650,7 @@ export function App(): ReactElement {
               activePath={activePath}
               onOpenFile={(path) => void openFile(path)}
               onAddDir={() => void addDir()}
+              onAddFile={() => void addFile()}
               onRemoveEntry={removeEntry}
               onHide={() => setFilesVisible(false)}
               onRenamed={handleRenamed}

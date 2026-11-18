@@ -55,11 +55,26 @@ function RefreshIcon(): ReactElement {
   )
 }
 
-function FoldIcon(): ReactElement {
+function CollapseIcon(): ReactElement {
   return (
     <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
       <path
-        d="M8 3.2v9.6M5.2 6 8 3.2 10.8 6M5.2 10 8 12.8 10.8 10"
+        d="M4.4 8.4 8 4.8l3.6 3.6M4.4 12.6 8 9l3.6 3.6"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function ExpandIcon(): ReactElement {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      <path
+        d="M4.4 3.4 8 7l3.6-3.6M4.4 7.6 8 11.2l3.6-3.6"
         fill="none"
         stroke="currentColor"
         strokeWidth="1.4"
@@ -219,6 +234,7 @@ interface FileTreeProps {
   activePath: string | null
   onOpenFile: (path: string) => void
   onAddDir: () => void
+  onAddFile: () => void
   onRemoveEntry: (path: string) => void
   onHide: () => void
   onRenamed: (from: string, to: string) => void
@@ -228,12 +244,13 @@ interface FileTreeProps {
 const EXPAND_BUDGET = 200
 
 export function FileTree(props: FileTreeProps): ReactElement {
-  const { entries, activePath, onOpenFile, onAddDir, onRemoveEntry, onHide, onRenamed, onError } = props
+  const { entries, activePath, onOpenFile, onAddDir, onAddFile, onRemoveEntry, onHide, onRenamed, onError } = props
   const roots = entries.filter((entry) => entry.kind === 'dir').map((entry) => entry.path)
 
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(roots))
   const [renaming, setRenaming] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ x: number; y: number; entry: TreeEntry; isRoot: boolean } | null>(null)
+  const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null)
 
   const entriesRef = useRef<Record<string, TreeEntry[]>>({})
   const [, bump] = useReducer((value: number) => value + 1, 0)
@@ -289,13 +306,11 @@ export function FileTree(props: FileTreeProps): ReactElement {
     [ensureLoaded]
   )
 
-  const toggleAll = useCallback(async () => {
-    const hasOpenSub = [...expanded].some((path) => !roots.includes(path))
-    if (hasOpenSub) {
-      setExpanded(new Set(roots))
-      return
-    }
+  const collapseAll = useCallback(() => {
+    setExpanded(new Set())
+  }, [])
 
+  const expandAll = useCallback(async () => {
     const next = new Set(expanded)
     const queue = [...roots]
     let budget = EXPAND_BUDGET
@@ -322,11 +337,20 @@ export function FileTree(props: FileTreeProps): ReactElement {
 
   const closeMenu = useCallback(() => setMenu(null), [])
 
+  const openAddMenu = useCallback((event: React.MouseEvent) => {
+    event.stopPropagation()
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+    setAddMenu({ x: Math.round(rect.left), y: Math.round(rect.bottom + 6) })
+  }, [])
+
   useEffect(() => {
-    if (!menu) return undefined
-    const handleDown = (): void => setMenu(null)
+    if (!menu && !addMenu) return undefined
+    const handleDown = (): void => {
+      setMenu(null)
+      setAddMenu(null)
+    }
     const handleKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') setMenu(null)
+      if (event.key === 'Escape') handleDown()
     }
     document.addEventListener('mousedown', handleDown)
     document.addEventListener('keydown', handleKey)
@@ -336,7 +360,7 @@ export function FileTree(props: FileTreeProps): ReactElement {
       document.removeEventListener('keydown', handleKey)
       window.removeEventListener('resize', handleDown)
     }
-  }, [menu])
+  }, [menu, addMenu])
 
   const openMenu = useCallback((event: React.MouseEvent, entry: TreeEntry, isRoot: boolean) => {
     event.preventDefault()
@@ -375,14 +399,17 @@ export function FileTree(props: FileTreeProps): ReactElement {
       <div className="jar-header">
         <span className="jar-title">星星罐</span>
         <span className="jar-actions" onClick={(event) => event.stopPropagation()}>
-          <button type="button" title="添加文件夹（展开成目录树）" aria-label="添加文件夹" onClick={onAddDir}>
+          <button type="button" title="添加文件夹或文件" aria-label="添加" onClick={openAddMenu}>
             <PlusIcon />
           </button>
           <button type="button" title="刷新文件列表" aria-label="刷新文件列表" onClick={() => void refreshAll()}>
             <RefreshIcon />
           </button>
-          <button type="button" title="折叠 / 展开全部" aria-label="折叠或展开全部" onClick={() => void toggleAll()}>
-            <FoldIcon />
+          <button type="button" title="全部折叠" aria-label="全部折叠" onClick={collapseAll}>
+            <CollapseIcon />
+          </button>
+          <button type="button" title="全部展开" aria-label="全部展开" onClick={() => void expandAll()}>
+            <ExpandIcon />
           </button>
           <button type="button" title="隐藏文件列表" aria-label="隐藏文件列表" onClick={onHide}>
             <FilesIcon active={false} />
@@ -452,6 +479,33 @@ export function FileTree(props: FileTreeProps): ReactElement {
           )
         )}
       </div>
+
+      {addMenu ? (
+        <div className="context-menu" style={{ left: addMenu.x, top: addMenu.y }} onMouseDown={(event) => event.stopPropagation()}>
+          <button
+            type="button"
+            className="menu-item"
+            onClick={() => {
+              setAddMenu(null)
+              onAddDir()
+            }}
+          >
+            <span className="menu-check" />
+            <span className="menu-label">添加文件夹</span>
+          </button>
+          <button
+            type="button"
+            className="menu-item"
+            onClick={() => {
+              setAddMenu(null)
+              onAddFile()
+            }}
+          >
+            <span className="menu-check" />
+            <span className="menu-label">添加文件</span>
+          </button>
+        </div>
+      ) : null}
 
       {menu ? (
         <div className="context-menu" style={{ left: menu.x, top: menu.y }} onMouseDown={(event) => event.stopPropagation()}>

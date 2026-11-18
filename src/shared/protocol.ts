@@ -114,6 +114,7 @@ export interface LibraApi {
   saveAs(payload: SaveAsPayload): Promise<{ path: string } | null>
   listFolder(dir: string): Promise<FolderListing>
   pickFolder(): Promise<string | null>
+  pickFile(): Promise<string | null>
   renamePath(path: string, name: string): Promise<string>
   getEntries(): Promise<JarEntry[]>
   setEntries(entries: JarEntry[]): void
@@ -147,6 +148,7 @@ export const CH = {
   saveAs: 'libra:file:save-as',
   listFolder: 'libra:folder:list',
   pickFolder: 'libra:folder:pick',
+  pickFile: 'libra:file:pick',
   renamePath: 'libra:file:rename',
   treeChanged: 'libra:tree:changed',
   entriesGet: 'libra:entries:get',
