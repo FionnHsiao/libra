@@ -371,24 +371,6 @@ body.platform-mac .titlebar-left {
   opacity: 1;
 }
 
-.tab-new {
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: none;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 16px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.tab-new:hover:not(:disabled) {
-  background: var(--hover);
-  color: var(--text);
-}
-
 .tab-actions {
   margin-left: auto;
   display: flex;

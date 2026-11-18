@@ -673,9 +673,6 @@ export function App(): ReactElement {
                   </button>
                 </div>
               ))}
-              <button type="button" className="tab-new" title="打开文件 (Ctrl+O)" onClick={() => void openViaDialog()}>
-                +
-              </button>
             </div>
 
             <div className="tab-actions">

@@ -1,6 +1,6 @@
 import { protocol, session } from 'electron'
 import { promises as fs } from 'node:fs'
-import { extname, resolve, sep } from 'node:path'
+import { extname, isAbsolute, relative, resolve } from 'node:path'
 import { decodeBuffer } from './encoding'
 
 const SCHEME = 'libra-file'
@@ -75,7 +75,9 @@ export function allowRoot(directory: string): void {
 function isAllowed(target: string): boolean {
   const normalized = resolve(target).toLowerCase()
   for (const root of allowedRoots) {
-    if (normalized === root || normalized.startsWith(root + sep)) return true
+    const rel = relative(root, normalized)
+    if (rel === '') return true
+    if (!rel.startsWith('..') && !isAbsolute(rel)) return true
   }
   return false
 }
