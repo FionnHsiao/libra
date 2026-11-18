@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0" stop-color="#104346"/>
+      <stop offset="0.55" stop-color="#0a2a33"/>
+      <stop offset="1" stop-color="#05161d"/>
+    </linearGradient>
+    <linearGradient id="glyph" gradientUnits="userSpaceOnUse" x1="300" y1="470" x2="724" y2="810">
+      <stop offset="0" stop-color="#5ff0e4"/>
+      <stop offset="0.5" stop-color="#3ecbe8"/>
+      <stop offset="1" stop-color="#2f5af0"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="16" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" rx="228" fill="url(#tile)"/>
+
+  <g fill="none" stroke="url(#glyph)" stroke-width="60" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)">
+    <path d="M346 648 V478 A166 166 0 0 1 678 478 V648"/>
+    <path d="M300 648 H724"/>
+    <path d="M324 806 H700"/>
+  </g>
+</svg>

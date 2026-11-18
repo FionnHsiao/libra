@@ -1,11 +1,15 @@
 import { BrowserWindow, shell } from 'electron'
+import { existsSync } from 'node:fs'
 import { handleShortcutInput } from './menu'
 import { join } from 'node:path'
 
 const devServerUrl = process.env['ELECTRON_RENDERER_URL']
 
 export function createMainWindow(): BrowserWindow {
+  const iconPath = join(__dirname, '../../resources/icon.png')
+
   const win = new BrowserWindow({
+    ...(existsSync(iconPath) ? { icon: iconPath } : {}),
     width: 1180,
     height: 780,
     minWidth: 760,
