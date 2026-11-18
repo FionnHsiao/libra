@@ -323,6 +323,13 @@ export function registerIpc(): void {
     getPreviewHost(win.webContents.id)?.reload()
   })
 
+  ipcMain.handle(CH.previewCapture, async (event): Promise<string | null> => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return null
+    const host = getPreviewHost(win.webContents.id)
+    return host ? host.capture() : null
+  })
+
   ipcMain.on(CH.previewSuppress, (event, value: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return
