@@ -73,7 +73,6 @@ export type CommandId = 'open' | 'close-tab' | 'toggle-files' | 'toggle-outline'
 
 export type AppAction =
   | 'quit'
-  | 'toggle-devtools'
   | 'toggle-fullscreen'
   | 'zoom-in'
   | 'zoom-out'
@@ -117,7 +116,7 @@ export interface LibraApi {
   onFileOpened(callback: (path: string) => void): () => void
   onPreviewNavigate(callback: (path: string) => void): () => void
   onOutline(callback: (items: OutlineItem[]) => void): () => void
-  onTreeChanged(callback: (payload: { dir: string }) => void): () => void
+  onTreeChanged(callback: (payload: { dir: string; path: string }) => void): () => void
   onCommand(callback: (message: CommandMessage) => void): () => void
 }
 

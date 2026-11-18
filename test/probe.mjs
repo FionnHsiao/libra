@@ -1,58 +1,50 @@
 import { execFile, spawn } from 'node:child_process'
+import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
 const PROJECT = 'E:/Libra/libra'
-const PROFILE = path.join(os.tmpdir(), 'libra-shot-profile4')
-const PORT = 9564
-const INSPECT = 9299
+const DIR = path.join(os.tmpdir(), 'libra-live')
+const FILE = path.join(DIR, 'live.html')
+const PROFILE = path.join(os.tmpdir(), 'libra-live-profile')
+const PORT = 9571
 const { default: electronPath } = await import('electron')
-const child = spawn(electronPath, ['.', '--remote-debugging-port=' + PORT, '--inspect=' + INSPECT, '--user-data-dir=' + PROFILE], { cwd: PROJECT, stdio: 'ignore' })
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
-const grab = (out) => new Promise((res) => {
-  execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', `${PROJECT}/test/grab.ps1`, '-ProcessId', String(child.pid), '-Out', out], (e, so) => res(so.trim()))
-})
 
-async function connect(url) {
-  const ws = new WebSocket(url)
+fs.mkdirSync(DIR, { recursive: true })
+fs.writeFileSync(FILE, '<!doctype html><meta charset="utf-8"><h1>版本一</h1>', 'utf8')
+fs.mkdirSync(PROFILE, { recursive: true })
+fs.writeFileSync(path.join(PROFILE, 'settings.json'), JSON.stringify({ entries: [{ kind: 'dir', path: DIR }] }), 'utf8')
+
+const child = spawn(electronPath, ['.', FILE, '--remote-debugging-port=' + PORT, '--user-data-dir=' + PROFILE], { cwd: PROJECT, stdio: 'ignore' })
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+async function previewText() {
+  const list = await (await fetch('http://127.0.0.1:' + PORT + '/json/list')).json()
+  const t = list.find((x) => x.url.startsWith('libra-file://'))
+  if (!t) return '(no preview)'
+  const ws = new WebSocket(t.webSocketDebuggerUrl)
   await new Promise((r, j) => { ws.onopen = r; ws.onerror = j })
-  let seq = 0
-  const evaluate = (expr) => new Promise((resolve) => {
-    const id = (seq += 1)
+  const value = await new Promise((resolve) => {
     const h = (ev) => {
       const m = JSON.parse(ev.data)
-      if (m.id !== id) return
+      if (m.id !== 1) return
       ws.removeEventListener('message', h)
       resolve(m.result?.result?.value)
     }
     ws.addEventListener('message', h)
-    ws.send(JSON.stringify({ id, method: 'Runtime.evaluate', params: { expression: expr, returnByValue: true, includeCommandLineAPI: true } }))
+    ws.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression: 'document.body.innerText.trim()', returnByValue: true } }))
   })
-  return { evaluate, close: () => ws.close() }
+  ws.close()
+  return value
 }
 
 try {
-  await sleep(3000)
-  const shell = await connect((await (await fetch('http://127.0.0.1:' + PORT + '/json/list')).json()).find((t) => t.url.endsWith('index.html')).webSocketDebuggerUrl)
-  await shell.evaluate('(() => { const rows = [...document.querySelectorAll(".panel-left .tree-row")]; const f = rows.find((el) => !el.querySelector(".chev")); if (f) f.click() })()')
-  await sleep(1500)
+  await sleep(3500)
+  console.log('before:', await previewText())
 
-  const mlist = await (await fetch('http://127.0.0.1:' + INSPECT + '/json/list')).json()
-  const main = await connect((mlist.find((x) => x.type === 'node') ?? mlist[0]).webSocketDebuggerUrl)
-
-  // 置顶 + 触发一次重绘，确保子视图有绘制表面
-  await main.evaluate('(() => { const w = require("electron").BrowserWindow.getAllWindows()[0]; w.setAlwaysOnTop(true, "screen-saver"); w.show(); w.focus(); w.moveTop(); const [a, b] = w.getSize(); w.setSize(a, b + 1); setTimeout(() => w.setSize(a, b), 60); return "ok" })()')
-  await sleep(1200)
-
-  await shell.evaluate('[...document.querySelectorAll(".menubar-button")].find((b) => b.textContent.trim() === "帮助").click()')
-  await sleep(1000)
-
-  console.log(await grab(path.join(os.tmpdir(), 'shadow-1.png')))
-  console.log(await grab(path.join(os.tmpdir(), 'shadow-2.png')))
-
-  await main.evaluate('(() => { require("electron").BrowserWindow.getAllWindows()[0].setAlwaysOnTop(false); return "ok" })()')
-  shell.close()
-  main.close()
+  fs.writeFileSync(FILE, '<!doctype html><meta charset="utf-8"><h1>版本二</h1>', 'utf8')
+  await sleep(2000)
+  console.log('after :', await previewText())
 } finally {
   await new Promise((resolve) => {
     if (!child.pid) { resolve(); return }

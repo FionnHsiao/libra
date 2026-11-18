@@ -6,12 +6,12 @@ import { CH } from '../shared/protocol'
 const watchers = new Map<string, FSWatcher>()
 const timers = new Map<string, NodeJS.Timeout>()
 
-function notify(dir: string): void {
+function notify(dir: string, path: string): void {
   const win = BrowserWindow.getAllWindows()[0]
-  win?.webContents.send(CH.treeChanged, { dir })
+  win?.webContents.send(CH.treeChanged, { dir, path })
 }
 
-function schedule(dir: string): void {
+function schedule(dir: string, path: string): void {
   const key = dir.toLowerCase()
   const pending = timers.get(key)
   if (pending) clearTimeout(pending)
@@ -19,7 +19,7 @@ function schedule(dir: string): void {
     key,
     setTimeout(() => {
       timers.delete(key)
-      notify(dir)
+      notify(dir, path)
     }, 250)
   )
 }
@@ -42,8 +42,8 @@ export function syncWatchers(roots: string[]): void {
     try {
       const watcher = watch(root, { recursive: true }, (_event, filename) => {
         const relative = filename ? filename.toString() : ''
-        const changed = relative ? dirname(join(root, relative)) : root
-        schedule(changed)
+        const changedPath = relative ? join(root, relative) : root
+        schedule(dirname(changedPath), changedPath)
       })
       watcher.on('error', () => {
         watcher.close()

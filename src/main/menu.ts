@@ -8,6 +8,7 @@ const SHORTCUTS_TEXT = [
   '大纲              Ctrl+Shift+B',
   '放大 / 缩小        Ctrl+= / Ctrl+-',
   '实际大小          Ctrl+0',
+  '刷新预览          Ctrl+R',
   '全屏              F11'
 ].join('\n')
 

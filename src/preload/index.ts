@@ -71,7 +71,7 @@ const api: LibraApi = {
     }
   },
   onTreeChanged: (callback) => {
-    const handler = (_event: unknown, payload: { dir: string }): void => callback(payload)
+    const handler = (_event: unknown, payload: { dir: string; path: string }): void => callback(payload)
     ipcRenderer.on(CH.treeChanged, handler)
     return () => {
       ipcRenderer.removeListener(CH.treeChanged, handler)

@@ -292,6 +292,16 @@ export function App(): ReactElement {
   }, [activePath])
 
   useEffect(() => {
+    const off = window.libra.onTreeChanged((payload) => {
+      const current = activePathRef.current
+      if (!current) return
+      if (payload.path.toLowerCase() !== current.toLowerCase()) return
+      window.libra.reloadPreview()
+    })
+    return off
+  }, [])
+
+  useEffect(() => {
     const container = document.querySelector('.tabs') as HTMLElement | null
     const active = container?.querySelector('.tab.active') as HTMLElement | null
     if (!container || !active) return
@@ -432,8 +442,7 @@ export function App(): ReactElement {
         { type: 'item', label: '缩小', accelerator: 'Ctrl+-', onSelect: () => window.libra.appAction('zoom-out') },
         { type: 'separator' },
         { type: 'item', label: '全屏', accelerator: 'F11', onSelect: () => window.libra.appAction('toggle-fullscreen') },
-        { type: 'item', label: '刷新预览', accelerator: 'Ctrl+R', onSelect: () => window.libra.reloadPreview() },
-        { type: 'item', label: '开发者工具', onSelect: () => window.libra.appAction('toggle-devtools') }
+        { type: 'item', label: '刷新预览', accelerator: 'Ctrl+R', onSelect: () => window.libra.reloadPreview() }
       ]
     },
     {

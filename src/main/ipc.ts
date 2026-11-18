@@ -276,9 +276,6 @@ export function registerIpc(): void {
       case 'quit':
         app.quit()
         break
-      case 'toggle-devtools':
-        win.webContents.toggleDevTools()
-        break
       case 'toggle-fullscreen':
         win.setFullScreen(!win.isFullScreen())
         break
