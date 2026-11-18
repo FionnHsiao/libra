@@ -9,6 +9,7 @@
   --accent-strong: #8d5d2d;
   --accent-soft: rgba(169, 116, 63, 0.13);
   --editor-bg: #fbfaf6;
+  --chrome-h: 38px;
 }
 
 * {
@@ -54,61 +55,96 @@ body {
 
 .app {
   display: grid;
-  grid-template-rows: 46px minmax(0, 1fr) 28px;
+  grid-template-rows: minmax(0, 1fr) 28px;
   height: 100%;
 }
 
-/* ---- 顶栏 ---- */
+/* ---- 主体三栏 ---- */
 
-.topbar {
+.body {
+  display: flex;
+  min-height: 0;
+}
+
+.panel-left {
+  flex: 0 0 248px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 6px 14px;
+  background: var(--panel);
+  border-right: 1px solid var(--line);
+}
+
+.center {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-rows: var(--chrome-h) minmax(0, 1fr);
+}
+
+.panel-right {
+  flex: 0 0 208px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+}
+
+/* ---- 标签栏 ---- */
+
+.tabbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 14px;
+  gap: 8px;
+  height: var(--chrome-h);
+  padding: 0 10px 0 6px;
   border-bottom: 1px solid var(--line);
   background: var(--bg);
 }
 
-.brand {
+.tabs {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.brand-mark {
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  display: grid;
-  place-items: center;
-  font-size: 12px;
-  font-weight: 700;
-  color: #fffaf0;
-  background: linear-gradient(140deg, #c08a4d, #9a6631);
-}
-
-.brand-name {
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: #6f675a;
-}
-
-.doc-title {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 7px;
+  gap: 3px;
   min-width: 0;
-  font-size: 12.5px;
+  overflow: hidden;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  max-width: 190px;
+  padding: 0 6px 0 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
   color: var(--muted);
-  white-space: nowrap;
+  font-size: 12.5px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.tab:hover:not(.active) {
+  background: rgba(0, 0, 0, 0.035);
+  color: var(--text);
+}
+
+.tab.active {
+  background: var(--editor-bg);
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.tab-name {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.dot {
+.tab-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -116,12 +152,60 @@ body {
   flex-shrink: 0;
 }
 
-.actions {
+.tab-close {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0.4;
+  flex-shrink: 0;
+}
+
+.tab-close:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text);
+  opacity: 1;
+}
+
+.tab-new {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.tab-new:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.045);
+  color: var(--text);
+}
+
+.tab-actions {
+  margin-left: auto;
   display: flex;
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
 }
+
+.save-btn {
+  font-size: 11.5px;
+  padding: 4px 11px;
+}
+
+/* ---- 通用按钮 ---- */
 
 button {
   font: inherit;
@@ -169,8 +253,9 @@ button.primary:hover:not(:disabled) {
   border: none;
   border-radius: 0;
   background: transparent;
-  padding: 5px 13px;
+  padding: 4px 12px;
   color: var(--muted);
+  font-size: 11.5px;
 }
 
 .segmented button.on {
@@ -179,37 +264,97 @@ button.primary:hover:not(:disabled) {
   font-weight: 600;
 }
 
-/* ---- 三栏主体 ---- */
+/* ---- 文件树 ---- */
 
-.body {
-  display: flex;
-  min-height: 0;
+.tree-node {
+  min-width: 0;
 }
 
-.panel-left,
-.panel-right {
+.tree-row {
   display: flex;
-  flex-direction: column;
-  min-height: 0;
+  align-items: center;
+  gap: 6px;
+  height: 29px;
+  padding-right: 8px;
+  border-radius: 6px;
+  color: #4c463a;
+  font-size: 12.5px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.tree-row:hover {
+  background: var(--panel-hover);
+  color: var(--text);
+}
+
+.tree-root-row {
+  position: sticky;
+  top: -6px;
+  z-index: 1;
+  height: 34px;
   background: var(--panel);
+  font-weight: 600;
+  color: #3d382e;
+  border-radius: 6px;
 }
 
-.panel-left {
-  flex: 0 0 232px;
-  border-right: 1px solid var(--line);
+.tree-row.active {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
 }
 
-.panel-right {
-  flex: 0 0 208px;
-  border-left: 1px solid var(--line);
+.tree-chevron {
+  display: grid;
+  place-items: center;
+  width: 12px;
+  flex-shrink: 0;
+  color: var(--muted);
 }
+
+.chev {
+  transition: transform 0.12s ease;
+}
+
+.chev.open {
+  transform: rotate(90deg);
+}
+
+.tree-icon {
+  flex-shrink: 0;
+  color: #a89478;
+}
+
+.tree-row.active .tree-icon,
+.tree-row:hover .tree-icon {
+  color: inherit;
+}
+
+.tree-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-empty {
+  height: 24px;
+  display: flex;
+  align-items: center;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+/* ---- 大纲 ---- */
 
 .panel-head {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 11px 14px 7px;
+  height: var(--chrome-h);
+  padding: 0 14px;
+  border-bottom: 1px solid var(--line);
   flex-shrink: 0;
 }
 
@@ -234,7 +379,7 @@ button.primary:hover:not(:disabled) {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0 8px 14px;
+  padding: 6px 8px 14px;
 }
 
 .panel-empty {
@@ -242,34 +387,6 @@ button.primary:hover:not(:disabled) {
   font-size: 12px;
   color: var(--muted);
   line-height: 1.7;
-}
-
-.file-item {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 6px 9px;
-  margin-bottom: 1px;
-  border: none;
-  border-radius: 7px;
-  background: transparent;
-  color: #4c463a;
-  font-size: 12.5px;
-  line-height: 1.5;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.file-item:hover:not(.active) {
-  background: var(--panel-hover);
-  color: var(--text);
-}
-
-.file-item.active {
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-  font-weight: 600;
 }
 
 .outline-item {
@@ -310,7 +427,6 @@ button.primary:hover:not(:disabled) {
 /* ---- 内容区 ---- */
 
 .content {
-  flex: 1;
   min-width: 0;
   min-height: 0;
   display: grid;

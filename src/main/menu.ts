@@ -15,6 +15,7 @@ const SHORTCUTS = [
   '另存为            Ctrl+Shift+S',
   '切换阅读 / 编辑    Ctrl+E',
   '文件列表           Ctrl+B',
+  '关闭标签页         Ctrl+W',
   '大纲              Ctrl+Shift+B',
   '在编辑模式查找      Ctrl+F',
   '放大 / 缩小        Ctrl+= / Ctrl+-',
@@ -71,6 +72,7 @@ export function installMenu(): void {
         { type: 'separator' },
         { label: '保存', accelerator: 'CmdOrCtrl+S', click: () => sendCommand('save') },
         { label: '另存为…', accelerator: 'CmdOrCtrl+Shift+S', click: () => sendCommand('save-as') },
+        { label: '关闭标签页', accelerator: 'CmdOrCtrl+W', click: () => sendCommand('close-tab') },
         { type: 'separator' },
         isMac ? { role: 'close', label: '关闭窗口' } : { role: 'quit', label: '退出' }
       ]

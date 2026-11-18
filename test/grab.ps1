@@ -1,4 +1,4 @@
-param([int]$ProcessId = 0, [string]$Out = "$env:TEMP\libra-shot.png")
+param([int]$ProcessId = 0, [string]$Out = "$env:TEMP\libra-shot.png", [string]$Method = "print")
 Add-Type -AssemblyName System.Drawing
 Add-Type @"
 using System;
@@ -8,6 +8,7 @@ public class NativeWin {
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
   [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
   [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
 }
 "@
 [NativeWin]::SetProcessDPIAware() | Out-Null
@@ -21,9 +22,16 @@ $w = $rect.Right - $rect.Left
 $h = $rect.Bottom - $rect.Top
 $bmp = New-Object System.Drawing.Bitmap($w, $h)
 $g = [System.Drawing.Graphics]::FromImage($bmp)
+if ($Method -eq "screen") {
+  [NativeWin]::SetForegroundWindow($handle) | Out-Null
+  Start-Sleep -Milliseconds 900
+  $g.CopyFromScreen($rect.Left, $rect.Top, 0, 0, $bmp.Size)
+  $ok = $true
+} else {
 $hdc = $g.GetHdc()
 $ok = [NativeWin]::PrintWindow($handle, $hdc, 2)
 $g.ReleaseHdc($hdc)
+}
 $g.Dispose()
 $bmp.Save($Out, [System.Drawing.Imaging.ImageFormat]::Png)
 $bmp.Dispose()

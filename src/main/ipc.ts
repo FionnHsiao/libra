@@ -6,6 +6,7 @@ import {
   CH,
   HTML_EXTENSIONS,
   MAX_DOCUMENT_BYTES,
+  type DirListing,
   type FileEntry,
   type FolderListing,
   type PreviewRect,
@@ -122,7 +123,7 @@ export function requestSaveFromRenderer(win: BrowserWindow): Promise<boolean> {
       pendingSave = null
       resolve(ok)
     }
-    win.webContents.send(CH.command, { id: 'save' })
+    win.webContents.send(CH.command, { id: 'save-all' })
   })
 }
 
@@ -167,6 +168,30 @@ export function registerIpc(): void {
     const target = assertDocumentPath(result.filePath)
     await writeTextAtomic(target, payload.text, payload.encoding, payload.bom, payload.eol)
     return { path: target }
+  })
+
+  ipcMain.handle(CH.readDir, async (_event, rawDir: unknown): Promise<DirListing> => {
+    const dir = assertDirectoryPath(rawDir)
+    const dirents = await fs.readdir(dir, { withFileTypes: true })
+    const entries: DirListing['entries'] = []
+
+    for (const entry of dirents) {
+      if (entry.name.startsWith('.')) continue
+      const fullPath = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        if (entry.name === 'node_modules') continue
+        entries.push({ name: entry.name, path: fullPath, kind: 'dir' })
+      } else if (entry.isFile() && htmlExtensions.has(extname(entry.name).toLowerCase())) {
+        entries.push({ name: entry.name, path: fullPath, kind: 'file' })
+      }
+    }
+
+    entries.sort((left, right) => {
+      if (left.kind !== right.kind) return left.kind === 'dir' ? -1 : 1
+      return left.name.localeCompare(right.name, 'zh-CN')
+    })
+
+    return { dir, entries }
   })
 
   ipcMain.handle(CH.listFolder, async (_event, rawDir: unknown): Promise<FolderListing> => {

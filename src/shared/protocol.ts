@@ -38,6 +38,17 @@ export interface FileEntry {
   size: number
 }
 
+export interface TreeEntry {
+  name: string
+  path: string
+  kind: 'dir' | 'file'
+}
+
+export interface DirListing {
+  dir: string
+  entries: TreeEntry[]
+}
+
 export interface FolderListing {
   dir: string
   files: FileEntry[]
@@ -65,9 +76,11 @@ export type CommandId =
   | 'open'
   | 'save'
   | 'save-as'
+  | 'save-all'
   | 'toggle-mode'
   | 'toggle-files'
   | 'toggle-outline'
+  | 'close-tab'
   | 'find'
   | 'reveal'
   | 'reload-preview'
@@ -82,6 +95,7 @@ export interface LibraApi {
   save(payload: SavePayload): Promise<SaveResult>
   saveAs(payload: SaveAsPayload): Promise<{ path: string } | null>
   listFolder(dir: string): Promise<FolderListing>
+  readDir(dir: string): Promise<DirListing>
   confirmDiscard(): Promise<boolean>
   loadPreview(path: string): Promise<void>
   reloadPreview(): void
@@ -110,6 +124,7 @@ export const CH = {
   save: 'libra:file:save',
   saveAs: 'libra:file:save-as',
   listFolder: 'libra:folder:list',
+  readDir: 'libra:folder:read-dir',
   confirmDiscard: 'libra:editor:confirm-discard',
   setDirty: 'libra:editor:set-dirty',
   saveDone: 'libra:editor:save-done',

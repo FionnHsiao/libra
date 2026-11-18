@@ -77,7 +77,7 @@ try {
   const targets = await listTargets()
   const mainTarget = targets.find((t) => t.type === 'page' && (t.url.startsWith('file://') || t.url.startsWith('http://localhost')))
   shell = await attach(mainTarget.webSocketDebuggerUrl)
-  await sleep(1900)
+  await sleep(2600)
 
   mainProc = null
   for (let i = 0; i < 40 && !mainProc; i += 1) {
@@ -102,14 +102,16 @@ try {
     await shell.evaluate(`JSON.stringify({
       hasEditor: !!document.querySelector('.cm-editor'),
       editorHidden: getComputedStyle(document.querySelector('.editor-pane')).display === 'none',
-      fileItems: document.querySelectorAll('.file-item').length,
-      activeName: document.querySelector('.file-item.active')?.textContent ?? '',
+      fileItems: document.querySelectorAll('.panel-left .tree-row').length,
+      activeName: document.querySelector('.tree-row.active .tree-label')?.textContent ?? '',
+      tabs: document.querySelectorAll('.tab').length,
+      tabNames: [...document.querySelectorAll('.tab .tab-name')].map((el) => el.textContent),
       outline: document.querySelectorAll('.outline-item').length,
       bodyBg: getComputedStyle(document.body).backgroundColor
     })`)
   )
   check('默认进入阅读模式（源码隐藏）', ui.hasEditor && ui.editorHidden, `display=${ui.editorHidden ? 'none' : 'block'}`)
-  check('左侧文件列表列出同目录 HTML', ui.fileItems >= 2, `${ui.fileItems} 个，当前 ${ui.activeName}`)
+  check('左侧文件树列出根目录与文件', ui.fileItems >= 3, `${ui.fileItems} 个，当前 ${ui.activeName}`)
   check('浅色主题生效', ui.bodyBg === 'rgb(247, 244, 236)', ui.bodyBg)
 
   const layout = JSON.parse(
@@ -143,12 +145,14 @@ try {
   check('渲染出真实 DOM 而不是源码', rendered.heading === '中文标题', JSON.stringify(rendered))
   check('从渲染结果提取目录（单标题文档）', ui.outline === 1, `${ui.outline} 项`)
 
-  await shell.evaluate(`[...document.querySelectorAll('.file-item')].find(el => el.textContent.trim() === 'another.html').click()`)
+  await shell.evaluate(`[...document.querySelectorAll('.panel-left .tree-row')].find(el => el.textContent.trim() === 'another.html').click()`)
   await sleep(1800)
 
   const afterSwitch = JSON.parse(
     await shell.evaluate(`JSON.stringify({
-      activeName: document.querySelector('.file-item.active')?.textContent ?? '',
+      activeName: document.querySelector('.tree-row.active .tree-label')?.textContent ?? '',
+      tabs: document.querySelectorAll('.tab').length,
+      tabNames: [...document.querySelectorAll('.tab .tab-name')].map((el) => el.textContent),
       outline: [...document.querySelectorAll('.outline-item')].map(el => el.className.match(/level-(\\d)/)?.[1] ?? '?'),
       titles: [...document.querySelectorAll('.outline-item')].map(el => el.textContent)
     })`)
@@ -158,6 +162,8 @@ try {
     afterSwitch.activeName === 'another.html' && afterSwitch.outline.length >= 6,
     `${afterSwitch.outline.length} 项，层级 ${[...new Set(afterSwitch.outline)].join('/')}`
   )
+  check('打开的文件成为新的标签页', afterSwitch.tabs === 2, afterSwitch.tabNames.join(' | '))
+
   check('目录识别 h1/h2/h3 层级', new Set(afterSwitch.outline).size === 3, [...new Set(afterSwitch.outline)].join(' / '))
 
   preview.close()
@@ -217,6 +223,16 @@ try {
     return window.libra.save({ path: d.path, text: ${JSON.stringify(doc.text)}, encoding: ${JSON.stringify(doc.encoding)}, bom: ${doc.bom}, eol: ${JSON.stringify(doc.eol)} })
   })()`)
   check('恢复原文后字节完全一致', hash() === before, `sha=${hash().slice(0, 12)}`)
+
+  await shell.evaluate(`document.querySelector('.tab.active .tab-close').click()`)
+  await sleep(700)
+  const afterClose = JSON.parse(
+    await shell.evaluate(`JSON.stringify({
+      tabs: document.querySelectorAll('.tab').length,
+      active: document.querySelector('.tab.active .tab-name')?.textContent ?? ''
+    })`)
+  )
+  check('关闭标签页后回到上一个文档', afterClose.tabs === 1 && afterClose.active === 'sample-gbk.html', `${afterClose.tabs} 个，当前 ${afterClose.active}`)
 } finally {
   preview?.close()
   mainProc?.close()

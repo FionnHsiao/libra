@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog, ipcMain, session } from 'electron'
 import { existsSync } from 'node:fs'
-import { isAbsolute, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { CH } from '../shared/protocol'
 import { installMenu } from './menu'
 import { isDirty, registerIpc, requestSaveFromRenderer } from './ipc'
@@ -21,7 +21,7 @@ function fileFromArgv(argv: readonly string[]): string | null {
   for (const raw of argv.slice(1)) {
     if (!raw || raw.startsWith('-')) continue
     if (!OPENABLE.test(raw)) continue
-    const candidate = isAbsolute(raw) ? raw : resolve(raw)
+    const candidate = resolve(raw)
     if (existsSync(candidate)) return candidate
   }
   return null
