@@ -102,6 +102,7 @@ export interface CommandMessage {
 }
 
 export interface LibraApi {
+  platform: string
   openDialog(): Promise<DocumentData | null>
   read(path: string): Promise<DocumentData>
   save(payload: SavePayload): Promise<SaveResult>

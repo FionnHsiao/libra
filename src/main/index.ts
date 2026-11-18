@@ -98,8 +98,12 @@ if (!hasLock) {
 } else {
   app.on('second-instance', (_event, argv) => {
     const file = fileFromArgv(argv)
-    if (mainWindow) {
+    if (!mainWindow) {
+      createWindow()
+    } else {
       if (mainWindow.isMinimized()) mainWindow.restore()
+      if (!mainWindow.isVisible()) mainWindow.show()
+      if (mainWindow.webContents.isCrashed()) mainWindow.webContents.reload()
       mainWindow.focus()
     }
     if (file) deliverFile(file)

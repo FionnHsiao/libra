@@ -84,6 +84,11 @@ body {
   -webkit-app-region: no-drag;
 }
 
+/* macOS：给左上角红绿灯留出位置 */
+body.platform-mac .titlebar-left {
+  padding-left: 84px;
+}
+
 .titlebar-title {
   flex: 1;
   min-width: 0;

@@ -361,6 +361,10 @@ export function App(): ReactElement {
   }, [])
 
   useEffect(() => {
+    if (window.libra.platform === 'darwin') document.body.classList.add('platform-mac')
+  }, [])
+
+  useEffect(() => {
     window.libra.setDirty(tabs.some((tab) => tab.dirty))
   }, [tabs])
 

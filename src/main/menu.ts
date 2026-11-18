@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, Menu, type Event as ElectronEvent, type Input } from 'electron'
+import { app, BrowserWindow, dialog, Menu, type Event as ElectronEvent, type MenuItemConstructorOptions, type Input } from 'electron'
 import { CH, type CommandId } from '../shared/protocol'
 
 const SHORTCUTS_TEXT = [
@@ -17,7 +17,38 @@ const SHORTCUTS_TEXT = [
 
 /** 没有原生菜单了：菜单由渲染进程自绘在标题栏里。 */
 export function installMenu(): void {
-  Menu.setApplicationMenu(null)
+  if (process.platform !== 'darwin') {
+    Menu.setApplicationMenu(null)
+    return
+  }
+
+  const template: MenuItemConstructorOptions[] = [
+    {
+      label: app.name,
+      submenu: [
+        { role: 'about', label: '关于 Libra' },
+        { type: 'separator' },
+        { role: 'hide', label: '隐藏 Libra' },
+        { role: 'hideOthers', label: '隐藏其他' },
+        { type: 'separator' },
+        { role: 'quit', label: '退出 Libra' }
+      ]
+    },
+    {
+      label: '编辑',
+      submenu: [
+        { role: 'undo', label: '撤销' },
+        { role: 'redo', label: '重做' },
+        { type: 'separator' },
+        { role: 'cut', label: '剪切' },
+        { role: 'copy', label: '复制' },
+        { role: 'paste', label: '粘贴' },
+        { role: 'selectAll', label: '全选' }
+      ]
+    }
+  ]
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
 export function showShortcutsDialog(win: BrowserWindow | null): void {

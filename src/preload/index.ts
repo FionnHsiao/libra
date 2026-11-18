@@ -8,6 +8,7 @@ import {
 } from '../shared/protocol'
 
 const api: LibraApi = {
+  platform: process.platform,
   openDialog: () => ipcRenderer.invoke(CH.openDialog),
   read: (path) => ipcRenderer.invoke(CH.read, path),
   save: (payload) => ipcRenderer.invoke(CH.save, payload),
