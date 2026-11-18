@@ -70,6 +70,28 @@ export function MenuBar({ groups }: MenuBarProps): ReactElement {
   )
 }
 
+export function FullscreenIcon(): ReactElement {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.15"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="1.4" y="3.1" width="13.2" height="9.8" rx="1.9" />
+      <path d="M4.9 6.7V5.6c0-.35.25-.6.6-.6h1.1" />
+      <path d="M11.1 6.7V5.6c0-.35-.25-.6-.6-.6H9.4" />
+      <path d="M4.9 9.3v1.1c0 .35.25.6.6.6h1.1" />
+      <path d="M11.1 9.3v1.1c0 .35-.25.6-.6.6H9.4" />
+    </svg>
+  )
+}
+
 export function ChevronDownIcon(): ReactElement {
   return (
     <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">

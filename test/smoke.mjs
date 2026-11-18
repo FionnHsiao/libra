@@ -473,6 +473,67 @@ try {
       !solo.allRows.includes('libra-solo'),
     `文件条目 ${solo.fileRows.join(', ')}；全部 ${solo.allRows.join(', ')}`
   )
+  // ---- 全屏阅读 ----
+  const hostRect = () =>
+    shell.evaluate(
+      `(() => { const h = document.querySelector('.preview-host').getBoundingClientRect(); return JSON.stringify({ x: Math.round(h.x), y: Math.round(h.y), w: Math.round(h.width), h: Math.round(h.height) }) })()`
+    )
+  const actionButtons = JSON.parse(
+    await shell.evaluate(`JSON.stringify([...document.querySelectorAll('.tab-actions .icon-btn')].map((b) => b.className))`)
+  )
+  const hostBefore = JSON.parse(await hostRect())
+  await shell.evaluate(`document.querySelector('.fullscreen-toggle').click()`)
+  await sleep(1900)
+  const immersive = JSON.parse(
+    await shell.evaluate(`(() => {
+      const hidden = (s) => { const el = document.querySelector(s); return !el || el.getBoundingClientRect().height === 0 }
+      const h = document.querySelector('.preview-host').getBoundingClientRect()
+      return JSON.stringify({
+        cls: document.querySelector('.app').className,
+        chrome: hidden('.titlebar') && hidden('.tabbar') && hidden('.rail') && hidden('.panel-left'),
+        x: Math.round(h.x), y: Math.round(h.y), w: Math.round(h.width), h: Math.round(h.height),
+        win: [innerWidth, innerHeight]
+      })
+    })()`)
+  )
+  check(
+    '全屏按钮排在文件列表与大纲之间',
+    actionButtons.length === 3 && actionButtons[1].includes('fullscreen-toggle') && actionButtons[2].includes('outline-toggle'),
+    actionButtons.join(' | ')
+  )
+  check(
+    '全屏阅读隐藏所有栏，网页铺满窗口',
+    immersive.cls.includes('immersive') &&
+      immersive.chrome &&
+      immersive.x === 0 &&
+      immersive.y === 0 &&
+      immersive.w === immersive.win[0] &&
+      immersive.h === immersive.win[1],
+    `网页 ${immersive.w}x${immersive.h}，窗口 ${immersive.win.join('x')}`
+  )
+
+  await shell.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
+  await sleep(1900)
+  const restored = JSON.parse(
+    await shell.evaluate(`(() => {
+      const h = document.querySelector('.preview-host').getBoundingClientRect()
+      return JSON.stringify({
+        cls: document.querySelector('.app').className,
+        w: Math.round(h.width),
+        x: Math.round(h.x),
+        tabbar: Math.round(document.querySelector('.tabbar').getBoundingClientRect().height)
+      })
+    })()`)
+  )
+  check(
+    'Esc 退出全屏阅读并还原布局',
+    !restored.cls.includes('immersive') &&
+      restored.tabbar > 0 &&
+      Math.abs(restored.x - hostBefore.x) <= 2 &&
+      Math.abs(restored.w - hostBefore.w) <= 2,
+    `网页宽 ${restored.w}，之前 ${hostBefore.w}`
+  )
+
 } finally {
   if (cursorAtStart) await setCursorTo(cursorAtStart.x, cursorAtStart.y)
   preview?.close()

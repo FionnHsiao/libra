@@ -729,3 +729,28 @@ body.resizing {
   line-height: 1.8;
   color: var(--muted);
 }
+/* ---- 全屏阅读：只剩渲染出来的网页 ---- */
+
+.app.immersive {
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.app.immersive .titlebar,
+.app.immersive .rail,
+.app.immersive .tabbar,
+.app.immersive .panel-left,
+.app.immersive .panel-right,
+.app.immersive .resizer {
+  display: none;
+}
+
+/* 卡片退化成铺满整窗的白纸：不要圆角、阴影和外边距 */
+.app.immersive .workspace {
+  margin: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.app.immersive .center {
+  grid-template-rows: minmax(0, 1fr);
+}

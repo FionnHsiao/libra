@@ -268,6 +268,25 @@ export function registerIpc(): void {
     getPreviewHost(win.webContents.id)?.scrollTo(rawIndex)
   })
 
+  // 全屏阅读：窗口进全屏，界面上的栏全部由渲染进程隐藏。
+  // 记住进全屏之前的状态，退出时还原，避免把用户原本的全屏状态改掉。
+  const immersiveByWindow = new Map<number, boolean>()
+  const fullscreenBefore = new Map<number, boolean>()
+  ipcMain.on(CH.immersive, (event, rawActive: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    const active = rawActive === true
+    if (immersiveByWindow.get(win.id) === active) return
+    immersiveByWindow.set(win.id, active)
+    if (active) {
+      fullscreenBefore.set(win.id, win.isFullScreen())
+      win.setFullScreen(true)
+    } else {
+      win.setFullScreen(fullscreenBefore.get(win.id) ?? false)
+      win.webContents.focus()
+    }
+  })
+
   ipcMain.on(CH.appAction, (event, rawAction: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win || typeof rawAction !== 'string') return
@@ -275,9 +294,6 @@ export function registerIpc(): void {
     switch (rawAction) {
       case 'quit':
         app.quit()
-        break
-      case 'toggle-fullscreen':
-        win.setFullScreen(!win.isFullScreen())
         break
       case 'zoom-in':
         adjustZoom(win, 0.1)

@@ -77,11 +77,18 @@ export interface PreviewRect {
   height: number
 }
 
-export type CommandId = 'open' | 'close-tab' | 'toggle-files' | 'toggle-outline' | 'reveal' | 'reload-preview'
+export type CommandId =
+  | 'open'
+  | 'close-tab'
+  | 'toggle-files'
+  | 'toggle-outline'
+  | 'reveal'
+  | 'reload-preview'
+  | 'toggle-immersive'
+  | 'exit-immersive'
 
 export type AppAction =
   | 'quit'
-  | 'toggle-fullscreen'
   | 'zoom-in'
   | 'zoom-out'
   | 'zoom-reset'
@@ -112,6 +119,7 @@ export interface LibraApi {
   loadPreview(path: string): Promise<void>
   reloadPreview(): void
   setPreviewBounds(rect: PreviewRect | null): void
+  setImmersive(active: boolean): void
   openOverlay(payload: OverlayOpenPayload): void
   closeOverlay(): void
   onOverlaySelect(callback: (id: string) => void): () => void
@@ -148,6 +156,7 @@ export const CH = {
   previewLoad: 'libra:preview:load',
   previewReload: 'libra:preview:reload',
   previewBounds: 'libra:preview:bounds',
+  immersive: 'libra:window:immersive',
   overlayOpen: 'libra:overlay:open',
   overlayClose: 'libra:overlay:close',
   overlayData: 'libra:overlay:data',

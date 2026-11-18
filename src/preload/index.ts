@@ -22,6 +22,7 @@ const api: LibraApi = {
   loadPreview: (path) => ipcRenderer.invoke(CH.previewLoad, path),
   reloadPreview: () => ipcRenderer.send(CH.previewReload),
   setPreviewBounds: (rect: PreviewRect | null) => ipcRenderer.send(CH.previewBounds, rect),
+  setImmersive: (active) => ipcRenderer.send(CH.immersive, active),
   openOverlay: (payload) => ipcRenderer.send(CH.overlayOpen, payload),
   closeOverlay: () => ipcRenderer.send(CH.overlayClose),
   onOverlaySelect: (callback) => {

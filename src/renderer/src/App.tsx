@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
 import type { DocumentData, JarEntry, OutlineItem, PreviewRect } from '../../shared/protocol'
-import { ChevronDownIcon, HomeIcon, LibraMark, MenuBar, OutlineIcon, type MenuGroup } from './MenuBar'
+import {
+  ChevronDownIcon,
+  FullscreenIcon,
+  HomeIcon,
+  LibraMark,
+  MenuBar,
+  OutlineIcon,
+  type MenuGroup
+} from './MenuBar'
 import { closeOverlayMenu, installOverlayBridge, openOverlayList } from './overlayMenu'
 import { baseName, isInside } from './paths'
 import { PreviewPane } from './PreviewPane'
@@ -42,6 +50,8 @@ export function App(): ReactElement {
   const [leftWidth, setLeftWidth] = useState(244)
   const [rightWidth, setRightWidth] = useState(204)
   const [tabListOpen, setTabListOpen] = useState(false)
+  // 全屏阅读：只留渲染出来的网页
+  const [immersive, setImmersive] = useState(false)
 
   const tabsRef = useRef<Tab[]>([])
   const activePathRef = useRef<string | null>(null)
@@ -358,6 +368,14 @@ export function App(): ReactElement {
       }
       if (message.id === 'reload-preview') {
         window.libra.reloadPreview()
+        return
+      }
+      if (message.id === 'toggle-immersive') {
+        setImmersive((current) => !current)
+        return
+      }
+      if (message.id === 'exit-immersive') {
+        setImmersive(false)
       }
     })
     const offOpened = window.libra.onFileOpened((path) => {
@@ -402,6 +420,26 @@ export function App(): ReactElement {
       window.removeEventListener('drop', handleDrop)
     }
   }, [openFile])
+
+  // 全屏阅读期间窗口也切到全屏；退出时由主进程还原之前的状态
+  useEffect(() => {
+    window.libra.setImmersive(immersive)
+  }, [immersive])
+
+  // 没有文档可读时不该停在全屏阅读里
+  useEffect(() => {
+    if (immersive && !activePath) setImmersive(false)
+  }, [immersive, activePath])
+
+  // 焦点在界面这边时，Esc 也能退出（焦点在网页里时由主进程接管）
+  useEffect(() => {
+    if (!immersive) return undefined
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setImmersive(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [immersive])
 
   useEffect(() => {
     if (!status) return undefined
@@ -461,7 +499,14 @@ export function App(): ReactElement {
         { type: 'item', label: '放大', accelerator: 'Ctrl+=', onSelect: () => window.libra.appAction('zoom-in') },
         { type: 'item', label: '缩小', accelerator: 'Ctrl+-', onSelect: () => window.libra.appAction('zoom-out') },
         { type: 'separator' },
-        { type: 'item', label: '全屏', accelerator: 'F11', onSelect: () => window.libra.appAction('toggle-fullscreen') },
+        {
+          type: 'item',
+          label: '全屏阅读',
+          accelerator: 'F11',
+          checked: immersive,
+          disabled: !hasTab,
+          onSelect: () => setImmersive((current) => !current)
+        },
         { type: 'item', label: '刷新预览', accelerator: 'Ctrl+R', onSelect: () => window.libra.reloadPreview() }
       ]
     },
@@ -479,7 +524,7 @@ export function App(): ReactElement {
   const titleText = status ?? (activeTab ? baseName(activeTab.path) : 'Libra')
 
   return (
-    <div className="app">
+    <div className={immersive ? 'app immersive' : 'app'}>
       <header className="titlebar">
         <div className="titlebar-left">
           <LibraMark />
@@ -557,6 +602,16 @@ export function App(): ReactElement {
                   onClick={(event) => void openTabList(event)}
                 >
                   <ChevronDownIcon />
+                </button>
+                <button
+                  type="button"
+                  className={immersive ? 'icon-btn fullscreen-toggle on' : 'icon-btn fullscreen-toggle'}
+                  title="全屏阅读（Esc 退出）"
+                  aria-label="全屏阅读"
+                  disabled={!hasTab}
+                  onClick={() => setImmersive((current) => !current)}
+                >
+                  <FullscreenIcon />
                 </button>
                 <button
                   type="button"

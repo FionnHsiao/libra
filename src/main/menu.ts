@@ -9,7 +9,7 @@ const SHORTCUTS_TEXT = [
   '放大 / 缩小        Ctrl+= / Ctrl+-',
   '实际大小          Ctrl+0',
   '刷新预览          Ctrl+R',
-  '全屏              F11'
+  '全屏阅读          F11 / Esc 退出'
 ].join('\n')
 
 /** 没有原生菜单了：菜单由渲染进程自绘在标题栏里。 */
@@ -81,7 +81,13 @@ export function handleShortcutInput(event: ElectronEvent, input: Input, win: Bro
 
   if (key === 'f11') {
     event.preventDefault()
-    win.setFullScreen(!win.isFullScreen())
+    send(win, 'toggle-immersive')
+    return
+  }
+
+  // Esc 只负责"退出全屏阅读"，不拦按键：重命名输入框还要用它取消
+  if (key === 'escape') {
+    send(win, 'exit-immersive')
     return
   }
 
