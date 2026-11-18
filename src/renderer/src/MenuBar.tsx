@@ -33,11 +33,10 @@ export function MenuBar({ groups }: MenuBarProps): ReactElement {
     }
   }, [])
 
-  const openMenu = useCallback((index: number, element: HTMLElement) => {
+  const openMenu = useCallback(async (index: number, element: HTMLElement) => {
     const rect = element.getBoundingClientRect()
     if (!suppressedRef.current && popupOverlapsPreview(rect.left, 224)) {
-      suppressedRef.current = true
-      suppressPreview()
+      suppressedRef.current = await suppressPreview()
     }
     setOpenIndex(index)
   }, [])
@@ -70,10 +69,10 @@ export function MenuBar({ groups }: MenuBarProps): ReactElement {
             className={openIndex === index ? 'menubar-button open' : 'menubar-button'}
             onClick={(event) => {
               if (openIndex === index) closeMenu()
-              else openMenu(index, event.currentTarget)
+              else void openMenu(index, event.currentTarget)
             }}
             onMouseEnter={(event) => {
-              if (openIndex !== null && openIndex !== index) openMenu(index, event.currentTarget)
+              if (openIndex !== null && openIndex !== index) void openMenu(index, event.currentTarget)
             }}
           >
             {group.label}

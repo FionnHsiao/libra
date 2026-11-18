@@ -20,34 +20,38 @@ export function popupOverlapsPreview(left: number, width: number): boolean {
 
 /**
  * 原生视图永远画在 DOM 之上，弹层要显示就只能先把它藏起来。
- * 但直接藏会白屏，所以先截一张当前画面贴到预览区当背景，视觉上文档"冻结"了。
+ * 直接藏会白屏，所以先把当前画面截下来贴到预览区当背景（文档"定格"）。
+ *
+ * 关键：必须等截图和隐藏都完成之后再显示弹层，
+ * 否则会先出现"菜单被正文压住"，随后跳到最上层，看起来就是闪一下。
+ *
+ * 返回是否真的完成了隐藏；拿不到截图时返回 false，此时调用方不应该隐藏视图。
  */
-export function suppressPreview(): void {
+export async function suppressPreview(): Promise<boolean> {
   depth += 1
-  if (depth > 1) return
+  if (depth > 1) return true
 
   const host = hostElement()
   if (!host) {
     window.libra.setPreviewSuppressed(true)
-    return
+    return true
   }
 
-  void window.libra
-    .capturePreview()
-    .then((snapshot) => {
-      // 拿不到快照就不隐藏视图：宁可菜单被压住，也不要白屏
-      if (!snapshot) {
-        depth = Math.max(0, depth - 1)
-        return
-      }
-      host.style.backgroundImage = `url(${snapshot})`
-      host.style.backgroundSize = '100% 100%'
-      host.style.backgroundRepeat = 'no-repeat'
-      window.libra.setPreviewSuppressed(true)
-    })
-    .catch(() => {
+  try {
+    const snapshot = await window.libra.capturePreview()
+    if (!snapshot) {
       depth = Math.max(0, depth - 1)
-    })
+      return false
+    }
+    host.style.backgroundImage = `url(${snapshot})`
+    host.style.backgroundSize = '100% 100%'
+    host.style.backgroundRepeat = 'no-repeat'
+    window.libra.setPreviewSuppressed(true)
+    return true
+  } catch {
+    depth = Math.max(0, depth - 1)
+    return false
+  }
 }
 
 export function releasePreview(): void {

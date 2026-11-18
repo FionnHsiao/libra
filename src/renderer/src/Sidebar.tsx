@@ -127,7 +127,7 @@ interface TreeNodeProps {
   renaming: string | null
   onToggle: (path: string) => void
   onOpenFile: (path: string) => void
-  onContextMenu: (event: React.MouseEvent, entry: TreeEntry, isRoot: boolean) => void
+  onContextMenu: (event: React.MouseEvent, entry: TreeEntry, isRoot: boolean) => Promise<void> | void
   onRenameCommit: (entry: TreeEntry, value: string) => void
   onRenameCancel: () => void
   onRemove?: (path: string) => void
@@ -163,7 +163,7 @@ function TreeNode(props: TreeNodeProps): ReactElement {
         className={['tree-row', isRoot ? 'tree-root-row' : '', isActive ? 'active' : ''].filter(Boolean).join(' ')}
         style={{ paddingLeft: `${indent}px` }}
         title={entry.path}
-        onContextMenu={(event) => onContextMenu(event, entry, Boolean(isRoot))}
+        onContextMenu={(event) => void onContextMenu(event, entry, Boolean(isRoot))}
         onClick={() => {
           if (isRenaming) return
           if (isDir) onToggle(entry.path)
@@ -249,11 +249,10 @@ export function FileTree(props: FileTreeProps): ReactElement {
   const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null)
   const suppressedRef = useRef(false)
 
-  const ensureSuppressed = useCallback((left: number, width: number) => {
+  const ensureSuppressed = useCallback(async (left: number, width: number) => {
     if (suppressedRef.current) return
     if (!popupOverlapsPreview(left, width)) return
-    suppressedRef.current = true
-    suppressPreview()
+    suppressedRef.current = await suppressPreview()
   }, [])
 
   const releaseSuppressed = useCallback(() => {
@@ -348,10 +347,10 @@ export function FileTree(props: FileTreeProps): ReactElement {
   const closeMenu = useCallback(() => setMenu(null), [])
 
   const openAddMenu = useCallback(
-    (event: React.MouseEvent) => {
+    async (event: React.MouseEvent) => {
       event.stopPropagation()
       const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-      ensureSuppressed(rect.left, 168)
+      await ensureSuppressed(rect.left, 168)
       setAddMenu({ x: Math.round(rect.left), y: Math.round(rect.bottom + 6) })
     },
     [ensureSuppressed]
@@ -377,12 +376,12 @@ export function FileTree(props: FileTreeProps): ReactElement {
     }
   }, [menu, addMenu, releaseSuppressed])
 
-  const openMenu = useCallback((event: React.MouseEvent, entry: TreeEntry, isRoot: boolean) => {
+  const openMenu = useCallback(async (event: React.MouseEvent, entry: TreeEntry, isRoot: boolean) => {
     event.preventDefault()
     event.stopPropagation()
     const width = 180
     const height = isRoot ? 116 : 78
-    ensureSuppressed(event.clientX, width)
+    await ensureSuppressed(event.clientX, width)
     setMenu({
       x: Math.min(event.clientX, window.innerWidth - width - 8),
       y: Math.min(event.clientY, window.innerHeight - height - 8),
@@ -415,7 +414,7 @@ export function FileTree(props: FileTreeProps): ReactElement {
       <div className="jar-header">
         <span className="jar-title">星星罐</span>
         <span className="jar-actions" onClick={(event) => event.stopPropagation()}>
-          <button type="button" title="添加文件夹或文件" aria-label="添加" onClick={openAddMenu}>
+          <button type="button" title="添加文件夹或文件" aria-label="添加" onClick={(event) => void openAddMenu(event)}>
             <PlusIcon />
           </button>
           <button type="button" title="刷新文件列表" aria-label="刷新文件列表" onClick={() => void refreshAll()}>

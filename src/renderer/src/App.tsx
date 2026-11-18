@@ -339,11 +339,10 @@ export function App(): ReactElement {
     }, 80)
   }, [])
 
-  const ensureSuppress = useCallback((left: number, width: number) => {
+  const ensureSuppress = useCallback(async (left: number, width: number) => {
     if (popupSuppressedRef.current) return
     if (!popupOverlapsPreview(left, width)) return
-    popupSuppressedRef.current = true
-    suppressPreview()
+    popupSuppressedRef.current = await suppressPreview()
   }, [])
 
   const releaseSuppress = useCallback(() => {
@@ -379,7 +378,7 @@ export function App(): ReactElement {
   )
 
   const openTabList = useCallback(
-    (event: React.MouseEvent) => {
+    async (event: React.MouseEvent) => {
       if (tabList) {
         setTabList(null)
         releaseSuppress()
@@ -388,7 +387,7 @@ export function App(): ReactElement {
       const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
       const width = 268
       const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))
-      ensureSuppress(left, width)
+      await ensureSuppress(left, width)
       setTabList({ x: left, y: Math.round(rect.bottom + 8) })
     },
     [ensureSuppress, releaseSuppress, tabList]
@@ -793,7 +792,7 @@ export function App(): ReactElement {
                 className={tabList ? 'icon-btn tab-list-toggle on' : 'icon-btn tab-list-toggle'}
                 title="已打开的文件"
                 aria-label="已打开的文件"
-                onClick={openTabList}
+                onClick={(event) => void openTabList(event)}
               >
                 <ChevronDownIcon />
               </button>
