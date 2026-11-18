@@ -87,6 +87,15 @@ export function MenuBar({ groups }: MenuBarProps): ReactElement {
   )
 }
 
+export function FilesIcon({ active }: { active: boolean }): ReactElement {
+  return (
+    <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+      <rect x="1.8" y="2.6" width="12.4" height="10.8" rx="2" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M6 2.8v10.4" stroke="currentColor" strokeWidth="1.3" opacity={active ? 1 : 0.5} />
+    </svg>
+  )
+}
+
 export function OutlineIcon({ active }: { active: boolean }): ReactElement {
   return (
     <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">

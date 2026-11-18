@@ -74,8 +74,8 @@ body {
 .titlebar-left {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding-left: 12px;
+  gap: 6px;
+  padding-left: 8px;
   flex-shrink: 1;
   min-width: 0;
   -webkit-app-region: no-drag;
@@ -130,12 +130,12 @@ body {
 }
 
 .menubar-button {
-  padding: 4px 10px;
+  padding: 5px 11px;
   border: none;
   border-radius: 6px;
   background: transparent;
   color: #4c463a;
-  font-size: 12.5px;
+  font-size: 13px;
   line-height: 20px;
 }
 

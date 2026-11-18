@@ -93,7 +93,7 @@ try {
   check('标题栏内的自绘菜单', ui.hasMenubar === 4, `${ui.hasMenubar} 个菜单`)
   check('大纲默认隐藏', ui.outlinePanels === 0, `${ui.outlinePanels} 个面板`)
 
-  await shell.evaluate(`document.querySelector('.icon-btn').click()`)
+  await shell.evaluate(`document.querySelector('.outline-toggle').click()`)
   await sleep(600)
 
   const layout = JSON.parse(
