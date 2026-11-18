@@ -1,16 +1,19 @@
 :root {
-  --bg: #f7f4ec;
-  --panel: #f1ece0;
-  --panel-hover: #e8e2d2;
-  --line: #e1d9c8;
+  /* 四个层次：顶栏/图标栏 → 文件树 → 正文 → 大纲 */
+  --bg: #ebe4d3;
+  --panel: #f4efe3;
+  --outline-bg: #f0e9db;
+  --editor-bg: #fdfbf6;
+  --panel-hover: #e7dfcd;
+  --line: #e2d9c6;
   --text: #2f2c26;
   --muted: #8c8477;
   --accent: #a9743f;
   --accent-strong: #8d5d2d;
   --accent-soft: rgba(169, 116, 63, 0.13);
-  --editor-bg: #fbfaf6;
   --chrome-h: 38px;
   --title-h: 40px;
+  --rail-w: 52px;
 }
 
 * {
@@ -217,6 +220,46 @@ body {
   min-height: 0;
 }
 
+/* ---- 最左侧图标栏 ---- */
+
+.rail {
+  flex: 0 0 var(--rail-w);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0 12px;
+  background: var(--bg);
+  border-right: 1px solid var(--line);
+}
+
+.rail-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: #6b6459;
+}
+
+.rail-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--text);
+}
+
+.rail-btn.on {
+  background: #fbf9f3;
+  color: var(--accent-strong);
+  box-shadow: inset 0 0 0 1px rgba(169, 116, 63, 0.16);
+}
+
+.rail-fill {
+  flex: 1;
+}
+
 .panel-left {
   flex: 0 0 248px;
   min-height: 0;
@@ -238,7 +281,7 @@ body {
   min-height: 0;
   display: flex;
   flex-direction: column;
-  background: var(--panel);
+  background: var(--outline-bg);
   border-left: 1px solid var(--line);
 }
 
@@ -251,7 +294,7 @@ body {
   height: var(--chrome-h);
   padding: 0 10px 0 6px;
   border-bottom: 1px solid var(--line);
-  background: var(--bg);
+  background: var(--editor-bg);
 }
 
 .tabs {
@@ -279,12 +322,12 @@ body {
 }
 
 .tab:hover:not(.active) {
-  background: rgba(0, 0, 0, 0.035);
+  background: rgba(140, 120, 80, 0.09);
   color: var(--text);
 }
 
 .tab.active {
-  background: var(--editor-bg);
+  background: #ffffff;
   border-color: var(--line);
   color: var(--text);
 }
@@ -649,7 +692,7 @@ button.primary:hover:not(:disabled) {
   gap: 6px;
   text-align: center;
   padding: 40px;
-  background: var(--bg);
+  background: var(--editor-bg);
 }
 
 .empty-mark {

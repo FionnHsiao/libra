@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from 'rea
 import type { DocumentData, OutlineItem, PreviewRect, ViewMode } from '../../shared/protocol'
 import { Editor } from './Editor'
 import { createEditorState, editorHooks } from './editorState'
-import { FilesIcon, MenuBar, OutlineIcon, type MenuGroup } from './MenuBar'
+import { FilesIcon, GitIcon, HomeIcon, MenuBar, OutlineIcon, type MenuGroup } from './MenuBar'
 import { PreviewPane } from './PreviewPane'
 import { FileTree, OutlinePanel } from './Sidebar'
 
@@ -542,6 +542,28 @@ export function App(): ReactElement {
       </header>
 
       <div className="body">
+        <nav className="rail" aria-label="主导航">
+          <button
+            type="button"
+            className={mode === 'read' ? 'rail-btn on' : 'rail-btn'}
+            title="主页：回到阅读视图"
+            aria-label="主页"
+            onClick={() => setMode('read')}
+          >
+            <HomeIcon />
+          </button>
+          <button
+            type="button"
+            className="rail-btn"
+            title="Git 同步（尚未实现）"
+            aria-label="Git 同步"
+            onClick={() => setStatus('Git 同步还没做，先占个位置')}
+          >
+            <GitIcon />
+          </button>
+          <div className="rail-fill" />
+        </nav>
+
         {filesVisible && rootDir ? (
           <FileTree rootDir={rootDir} activePath={activePath} onOpenFile={(path) => void openFile(path)} />
         ) : null}

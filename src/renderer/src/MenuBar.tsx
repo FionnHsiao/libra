@@ -87,6 +87,30 @@ export function MenuBar({ groups }: MenuBarProps): ReactElement {
   )
 }
 
+export function HomeIcon(): ReactElement {
+  return (
+    <svg viewBox="0 0 16 16" width="17" height="17" aria-hidden="true">
+      <path
+        d="M2.5 6.9 8 2.3l5.5 4.6V13a1 1 0 0 1-1 1h-3V9.4H6.5V14h-3a1 1 0 0 1-1-1z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.3"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+export function GitIcon(): ReactElement {
+  return (
+    <svg viewBox="0 0 16 16" width="17" height="17" aria-hidden="true">
+      <circle cx="8" cy="3.6" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="8" cy="12.4" r="1.8" fill="none" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M8 5.4v5.2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function FilesIcon({ active }: { active: boolean }): ReactElement {
   return (
     <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">

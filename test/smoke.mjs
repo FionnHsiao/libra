@@ -84,14 +84,31 @@ try {
       activeName: document.querySelector('.tree-row.active .tree-label')?.textContent ?? '',
       outlinePanels: document.querySelectorAll('.panel-right').length,
       hasMenubar: document.querySelectorAll('.menubar-button').length,
-      bodyBg: getComputedStyle(document.body).backgroundColor
+      railButtons: document.querySelectorAll('.rail-btn').length,
+      chromeBg: getComputedStyle(document.querySelector('.titlebar')).backgroundColor,
+      railBg: getComputedStyle(document.querySelector('.rail')).backgroundColor,
+      treeBg: getComputedStyle(document.querySelector('.panel-left')).backgroundColor,
+      centerBg: getComputedStyle(document.querySelector('.tabbar')).backgroundColor
     })`)
   )
   check('默认进入阅读模式（源码隐藏）', ui.hasEditor && ui.editorHidden, `display=${ui.editorHidden ? 'none' : 'block'}`)
   check('左侧文件树列出根目录与文件', ui.treeRows >= 3, `${ui.treeRows} 行，当前 ${ui.activeName}`)
-  check('浅色主题生效', ui.bodyBg === 'rgb(247, 244, 236)', ui.bodyBg)
+  check(
+    '顶栏与左侧图标栏同色、与文件树区分',
+    ui.chromeBg === ui.railBg && ui.railBg !== ui.treeBg,
+    `chrome ${ui.chromeBg} / rail ${ui.railBg} / tree ${ui.treeBg}`
+  )
   check('标题栏内的自绘菜单', ui.hasMenubar === 4, `${ui.hasMenubar} 个菜单`)
   check('大纲默认隐藏', ui.outlinePanels === 0, `${ui.outlinePanels} 个面板`)
+  check('左侧图标栏有主页与 Git 两个按钮', ui.railButtons === 2, `${ui.railButtons} 个按钮`)
+
+  await shell.evaluate(`[...document.querySelectorAll('.segmented button')].find((b) => b.textContent.trim() === '编辑').click()`)
+  await sleep(500)
+  const editDisplay = await shell.evaluate(`getComputedStyle(document.querySelector('.editor-pane')).display`)
+  await shell.evaluate(`document.querySelector('.rail-btn').click()`)
+  await sleep(500)
+  const homeDisplay = await shell.evaluate(`getComputedStyle(document.querySelector('.editor-pane')).display`)
+  check('主页按钮回到阅读视图', editDisplay !== 'none' && homeDisplay === 'none', `${editDisplay} -> ${homeDisplay}`)
 
   await shell.evaluate(`document.querySelector('.outline-toggle').click()`)
   await sleep(600)
@@ -102,13 +119,20 @@ try {
       previewLeft: Math.round(document.querySelector('.preview-host')?.getBoundingClientRect().left ?? -1),
       previewRight: Math.round(document.querySelector('.preview-host')?.getBoundingClientRect().right ?? -1),
       rightLeft: Math.round(document.querySelector('.panel-right')?.getBoundingClientRect().left ?? -1),
-      outlineItems: document.querySelectorAll('.panel-right .outline-item').length
+      outlineItems: document.querySelectorAll('.panel-right .outline-item').length,
+      outlineBg: getComputedStyle(document.querySelector('.panel-right')).backgroundColor,
+      innerCenterBg: getComputedStyle(document.querySelector('.tabbar')).backgroundColor
     })`)
   )
   check(
     '点按钮后出现大纲，三栏排布',
     layout.outlineItems > 0 && layout.leftRight <= layout.previewLeft && layout.previewRight <= layout.rightLeft,
     `左 ends ${layout.leftRight}，预览 ${layout.previewLeft}-${layout.previewRight}，右 starts ${layout.rightLeft}`
+  )
+  check(
+    '正文与右侧大纲不同色',
+    layout.innerCenterBg !== layout.outlineBg && layout.outlineBg !== ui.treeBg,
+    `正文 ${layout.innerCenterBg} / 大纲 ${layout.outlineBg} / 文件树 ${ui.treeBg}`
   )
 
   preview = await attach((await listTargets()).find((t) => t.url.startsWith('libra-file://')).webSocketDebuggerUrl)
