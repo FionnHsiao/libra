@@ -2,6 +2,7 @@ import { useCallback, useEffect, useReducer, useRef, useState, type ReactElement
 import type { JarEntry, OutlineItem, TreeEntry } from '../../shared/protocol'
 import { FilesIcon } from './MenuBar'
 import { baseName, dirName } from './paths'
+import { popupOverlapsPreview, releasePreview, suppressPreview } from './previewSuppress'
 
 function ChevronIcon({ open }: { open: boolean }): ReactElement {
   return (
@@ -224,6 +225,7 @@ function TreeNode(props: TreeNodeProps): ReactElement {
 }
 
 interface FileTreeProps {
+  width: number
   entries: JarEntry[]
   activePath: string | null
   onOpenFile: (path: string) => void
@@ -238,13 +240,27 @@ interface FileTreeProps {
 const EXPAND_BUDGET = 200
 
 export function FileTree(props: FileTreeProps): ReactElement {
-  const { entries, activePath, onOpenFile, onAddDir, onAddFile, onRemoveEntry, onHide, onRenamed, onError } = props
+  const { width, entries, activePath, onOpenFile, onAddDir, onAddFile, onRemoveEntry, onHide, onRenamed, onError } = props
   const roots = entries.filter((entry) => entry.kind === 'dir').map((entry) => entry.path)
 
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(roots))
   const [renaming, setRenaming] = useState<string | null>(null)
   const [menu, setMenu] = useState<{ x: number; y: number; entry: TreeEntry; isRoot: boolean } | null>(null)
   const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null)
+  const suppressedRef = useRef(false)
+
+  const ensureSuppressed = useCallback((left: number, width: number) => {
+    if (suppressedRef.current) return
+    if (!popupOverlapsPreview(left, width)) return
+    suppressedRef.current = true
+    suppressPreview()
+  }, [])
+
+  const releaseSuppressed = useCallback(() => {
+    if (!suppressedRef.current) return
+    suppressedRef.current = false
+    releasePreview()
+  }, [])
 
   const entriesRef = useRef<Record<string, TreeEntry[]>>({})
   const [, bump] = useReducer((value: number) => value + 1, 0)
@@ -331,17 +347,22 @@ export function FileTree(props: FileTreeProps): ReactElement {
 
   const closeMenu = useCallback(() => setMenu(null), [])
 
-  const openAddMenu = useCallback((event: React.MouseEvent) => {
-    event.stopPropagation()
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-    setAddMenu({ x: Math.round(rect.left), y: Math.round(rect.bottom + 6) })
-  }, [])
+  const openAddMenu = useCallback(
+    (event: React.MouseEvent) => {
+      event.stopPropagation()
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+      ensureSuppressed(rect.left, 168)
+      setAddMenu({ x: Math.round(rect.left), y: Math.round(rect.bottom + 6) })
+    },
+    [ensureSuppressed]
+  )
 
   useEffect(() => {
     if (!menu && !addMenu) return undefined
     const handleDown = (): void => {
       setMenu(null)
       setAddMenu(null)
+      releaseSuppressed()
     }
     const handleKey = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') handleDown()
@@ -354,20 +375,21 @@ export function FileTree(props: FileTreeProps): ReactElement {
       document.removeEventListener('keydown', handleKey)
       window.removeEventListener('resize', handleDown)
     }
-  }, [menu, addMenu])
+  }, [menu, addMenu, releaseSuppressed])
 
   const openMenu = useCallback((event: React.MouseEvent, entry: TreeEntry, isRoot: boolean) => {
     event.preventDefault()
     event.stopPropagation()
     const width = 180
     const height = isRoot ? 116 : 78
+    ensureSuppressed(event.clientX, width)
     setMenu({
       x: Math.min(event.clientX, window.innerWidth - width - 8),
       y: Math.min(event.clientY, window.innerHeight - height - 8),
       entry,
       isRoot
     })
-  }, [])
+  }, [ensureSuppressed])
 
   const commitRename = useCallback(
     async (entry: TreeEntry, value: string) => {
@@ -389,7 +411,7 @@ export function FileTree(props: FileTreeProps): ReactElement {
   )
 
   return (
-    <aside className="panel-left">
+    <aside className="panel-left" style={{ width, flex: '0 0 auto' }}>
       <div className="jar-header">
         <span className="jar-title">星星罐</span>
         <span className="jar-actions" onClick={(event) => event.stopPropagation()}>
@@ -545,15 +567,16 @@ export function FileTree(props: FileTreeProps): ReactElement {
 }
 
 interface OutlinePanelProps {
+  width: number
   outline: OutlineItem[]
   onJump: (index: number) => void
 }
 
-export function OutlinePanel({ outline, onJump }: OutlinePanelProps): ReactElement {
+export function OutlinePanel({ width, outline, onJump }: OutlinePanelProps): ReactElement {
   const baseLevel = outline.length > 0 ? Math.min(...outline.map((item) => item.level)) : 1
 
   return (
-    <aside className="panel-right">
+    <aside className="panel-right" style={{ width, flex: '0 0 auto' }}>
       <div className="panel-head">
         <span className="panel-title">大纲</span>
       </div>

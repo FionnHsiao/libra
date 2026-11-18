@@ -124,13 +124,27 @@ try {
   check('大纲默认隐藏', ui.outlinePanels === 0, `${ui.outlinePanels} 个面板`)
   check('左侧图标栏有主页与 Git 两个按钮', ui.railButtons === 2, `${ui.railButtons} 个按钮`)
 
-  await shell.evaluate(`[...document.querySelectorAll('.segmented button')].find((b) => b.textContent.trim() === '编辑').click()`)
+  await shell.evaluate(`[...document.querySelectorAll('.menubar-button')].find((b) => b.textContent.trim() === '视图').click()`)
+  await sleep(250)
+  await shell.evaluate(`[...document.querySelectorAll('.menu-item')].find((b) => b.textContent.includes('编辑模式')).click()`)
   await sleep(500)
   const editDisplay = await shell.evaluate(`getComputedStyle(document.querySelector('.editor-pane')).display`)
   await shell.evaluate(`document.querySelector('.rail-btn').click()`)
   await sleep(500)
   const homeDisplay = await shell.evaluate(`getComputedStyle(document.querySelector('.editor-pane')).display`)
   check('主页按钮回到阅读视图', editDisplay !== 'none' && homeDisplay === 'none', `${editDisplay} -> ${homeDisplay}`)
+
+  const widthBefore = await shell.evaluate(`Math.round(document.querySelector('.panel-left').getBoundingClientRect().width)`)
+  await shell.evaluate(`(() => {
+    const resizer = document.querySelector('.resizer')
+    const rect = resizer.getBoundingClientRect()
+    resizer.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: rect.left + 2, clientY: rect.top + 120 }))
+    document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: rect.left + 62, clientY: rect.top + 120 }))
+    document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }))
+  })()`)
+  await sleep(400)
+  const widthAfter = await shell.evaluate(`Math.round(document.querySelector('.panel-left').getBoundingClientRect().width)`)
+  check('拖动分隔条可以加宽文件栏', widthAfter > widthBefore + 20, `${widthBefore}px -> ${widthAfter}px`)
 
   await shell.evaluate(`document.querySelector('.outline-toggle').click()`)
   await sleep(600)
@@ -315,6 +329,22 @@ try {
   check('磁盘新增文件自动出现在树里', rowsAfterProbe.includes('watcher-probe.html'), `${rowsAfterProbe.length} 行`)
   fs.unlinkSync(probe)
   await sleep(600)
+
+  await shell.evaluate(`document.querySelector('.tab-list-toggle').click()`)
+  await sleep(300)
+  const tabListInfo = JSON.parse(
+    await shell.evaluate(`JSON.stringify({
+      items: [...document.querySelectorAll('.tab-list-item .tab-list-label')].map((el) => el.textContent),
+      closers: document.querySelectorAll('.tab-list-close').length
+    })`)
+  )
+  check(
+    '页签列表按钮展示已打开文件并可关闭',
+    tabListInfo.items.length === tabListInfo.closers && tabListInfo.items.length >= 1,
+    `${tabListInfo.items.length} 个文件，${tabListInfo.closers} 个关闭按钮`
+  )
+  await shell.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
+  await sleep(200)
 
   // ---- 打开单个文件：只在星星罐里放一条文件，不展开同级目录 ----
   const soloDir = path.join(os.tmpdir(), 'libra-solo')

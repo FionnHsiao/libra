@@ -7,7 +7,8 @@ import type { DocumentData, JarEntry, OutlineItem, PreviewRect, ViewMode } from 
 import { Editor } from './Editor'
 import { createEditorState, editorHooks } from './editorState'
 import { baseName, isInside } from './paths'
-import { GitIcon, HomeIcon, LibraMark, MenuBar, OutlineIcon, type MenuGroup } from './MenuBar'
+import { ChevronDownIcon, GitIcon, HomeIcon, LibraMark, MenuBar, OutlineIcon, type MenuGroup } from './MenuBar'
+import { popupOverlapsPreview, releasePreview, suppressPreview } from './previewSuppress'
 import { PreviewPane } from './PreviewPane'
 import { FileTree, OutlinePanel } from './Sidebar'
 
@@ -53,11 +54,15 @@ export function App(): ReactElement {
   const [status, setStatus] = useState<string | null>(null)
   const [filesVisible, setFilesVisible] = useState(true)
   const [outlineVisible, setOutlineVisible] = useState(false)
+  const [leftWidth, setLeftWidth] = useState(244)
+  const [rightWidth, setRightWidth] = useState(204)
+  const [tabList, setTabList] = useState<{ x: number; y: number } | null>(null)
 
   const tabsRef = useRef<Tab[]>([])
   const activePathRef = useRef<string | null>(null)
   const entriesRef = useRef<JarEntry[]>([])
   const viewRef = useRef<EditorView | null>(null)
+  const popupSuppressedRef = useRef(false)
 
   const commit = useCallback((next: Tab[]) => {
     tabsRef.current = next
@@ -334,6 +339,61 @@ export function App(): ReactElement {
     }, 80)
   }, [])
 
+  const ensureSuppress = useCallback((left: number, width: number) => {
+    if (popupSuppressedRef.current) return
+    if (!popupOverlapsPreview(left, width)) return
+    popupSuppressedRef.current = true
+    suppressPreview()
+  }, [])
+
+  const releaseSuppress = useCallback(() => {
+    if (!popupSuppressedRef.current) return
+    popupSuppressedRef.current = false
+    releasePreview()
+  }, [])
+
+  const startResize = useCallback(
+    (side: 'left' | 'right', event: React.MouseEvent) => {
+      event.preventDefault()
+      const startX = event.clientX
+      const startWidth = side === 'left' ? leftWidth : rightWidth
+      const limit = (): number => Math.max(200, Math.round(window.innerWidth * 0.3))
+
+      const onMove = (moveEvent: MouseEvent): void => {
+        const delta = side === 'left' ? moveEvent.clientX - startX : startX - moveEvent.clientX
+        const next = Math.max(160, Math.min(limit(), startWidth + delta))
+        if (side === 'left') setLeftWidth(next)
+        else setRightWidth(next)
+      }
+      const onUp = (): void => {
+        document.removeEventListener('mousemove', onMove)
+        document.removeEventListener('mouseup', onUp)
+        document.body.classList.remove('resizing')
+      }
+
+      document.body.classList.add('resizing')
+      document.addEventListener('mousemove', onMove)
+      document.addEventListener('mouseup', onUp)
+    },
+    [leftWidth, rightWidth]
+  )
+
+  const openTabList = useCallback(
+    (event: React.MouseEvent) => {
+      if (tabList) {
+        setTabList(null)
+        releaseSuppress()
+        return
+      }
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+      const width = 268
+      const left = Math.max(8, Math.min(rect.right - width, window.innerWidth - width - 8))
+      ensureSuppress(left, width)
+      setTabList({ x: left, y: Math.round(rect.bottom + 8) })
+    },
+    [ensureSuppress, releaseSuppress, tabList]
+  )
+
   const editorCommand = useCallback((action: 'undo' | 'redo') => {
     const view = viewRef.current
     if (!view) return
@@ -481,6 +541,33 @@ export function App(): ReactElement {
       window.removeEventListener('drop', handleDrop)
     }
   }, [openFile])
+
+  useEffect(() => {
+    if (!tabList) return undefined
+    const close = (): void => {
+      setTabList(null)
+      releaseSuppress()
+    }
+    const handleDown = (event: MouseEvent): void => {
+      const target = event.target as HTMLElement
+      if (target.closest('.tab-list-menu') || target.closest('.tab-list-toggle')) return
+      close()
+    }
+    const handleKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') close()
+    }
+    document.addEventListener('mousedown', handleDown)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handleDown)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [tabList, releaseSuppress])
+
+  useEffect(() => {
+    const element = document.querySelector('.tab.active')
+    element?.scrollIntoView({ inline: 'nearest', block: 'nearest' })
+  }, [activePath, tabs.length])
 
   useEffect(() => {
     if (!status) return undefined
@@ -645,17 +732,21 @@ export function App(): ReactElement {
 
         <div className="workspace">
           {filesVisible ? (
-            <FileTree
-              entries={entries}
+            <>
+              <FileTree
+                width={leftWidth}
+                entries={entries}
               activePath={activePath}
               onOpenFile={(path) => void openFile(path)}
               onAddDir={() => void addDir()}
               onAddFile={() => void addFile()}
               onRemoveEntry={removeEntry}
               onHide={() => setFilesVisible(false)}
-              onRenamed={handleRenamed}
-              onError={setStatus}
-            />
+                onRenamed={handleRenamed}
+                onError={setStatus}
+              />
+              <div className="resizer" onMouseDown={(event) => startResize('left', event)} />
+            </>
           ) : null}
 
           <section className="center">
@@ -691,21 +782,14 @@ export function App(): ReactElement {
                   {cursor.line}:{cursor.column}
                 </span>
               ) : null}
-              <div className="segmented" role="group" aria-label="视图模式">
-                <button type="button" className={mode === 'read' ? 'on' : ''} onClick={() => setMode('read')}>
-                  阅读
-                </button>
-                <button type="button" className={mode === 'edit' ? 'on' : ''} onClick={() => setMode('edit')}>
-                  编辑
-                </button>
-              </div>
               <button
-                className="primary save-btn"
                 type="button"
-                disabled={!hasTab || !activeTab?.dirty}
-                onClick={() => void saveActive()}
+                className={tabList ? 'icon-btn tab-list-toggle on' : 'icon-btn tab-list-toggle'}
+                title="已打开的文件"
+                aria-label="已打开的文件"
+                onClick={openTabList}
               >
-                保存
+                <ChevronDownIcon />
               </button>
               <button
                 type="button"
@@ -735,9 +819,48 @@ export function App(): ReactElement {
           </main>
         </section>
 
-          {outlineVisible && activeTab ? <OutlinePanel outline={outline} onJump={handleOutlineJump} /> : null}
+          {outlineVisible && activeTab ? (
+            <>
+              <div className="resizer" onMouseDown={(event) => startResize('right', event)} />
+              <OutlinePanel width={rightWidth} outline={outline} onJump={handleOutlineJump} />
+            </>
+          ) : null}
         </div>
       </div>
+      {tabList ? (
+        <div
+          className="context-menu tab-list-menu"
+          style={{ left: tabList.x, top: tabList.y }}
+          onMouseDown={(event) => event.stopPropagation()}
+        >
+          {tabs.map((tab) => (
+            <div key={tab.path} className={tab.path === activePath ? 'tab-list-item active' : 'tab-list-item'}>
+              <button
+                type="button"
+                className="tab-list-name"
+                title={tab.path}
+                onClick={() => {
+                  activate(tab.path)
+                  setTabList(null)
+                  releaseSuppress()
+                }}
+              >
+                <span className="tab-list-label">{baseName(tab.path)}</span>
+                {tab.dirty ? <span className="tab-dot" /> : null}
+              </button>
+              <button
+                type="button"
+                className="tab-list-close"
+                aria-label="关闭"
+                onClick={() => void closeTab(tab.path)}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
     </div>
   )
 }

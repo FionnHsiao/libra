@@ -23,6 +23,7 @@ const OUTLINE_SCRIPT = `(() => {
 
 export class PreviewHost {
   private readonly view: WebContentsView
+  private suppressed = false
 
   constructor(private readonly win: BrowserWindow) {
     this.view = new WebContentsView({
@@ -82,7 +83,14 @@ export class PreviewHost {
     await this.view.webContents.loadURL(toPreviewUrl(filePath))
   }
 
+  /** 弹层（菜单 / 右键菜单）出现时临时让出位置：原生视图永远盖在 DOM 之上，只能先隐藏 */
+  setSuppressed(suppressed: boolean): void {
+    this.suppressed = suppressed
+    this.view.setVisible(!suppressed)
+  }
+
   setBounds(rect: PreviewRect | null): void {
+    if (this.suppressed) return
     if (!rect || rect.width < 8 || rect.height < 8) {
       this.view.setVisible(false)
       return

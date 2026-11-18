@@ -323,6 +323,12 @@ export function registerIpc(): void {
     getPreviewHost(win.webContents.id)?.reload()
   })
 
+  ipcMain.on(CH.previewSuppress, (event, value: unknown) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    getPreviewHost(win.webContents.id)?.setSuppressed(value === true)
+  })
+
   ipcMain.on(CH.previewBounds, (event, rawRect: unknown) => {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return

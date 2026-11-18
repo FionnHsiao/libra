@@ -123,6 +123,7 @@ export interface LibraApi {
   loadPreview(path: string): Promise<void>
   reloadPreview(): void
   setPreviewBounds(rect: PreviewRect | null): void
+  setPreviewSuppressed(suppressed: boolean): void
   scrollPreviewTo(index: number): void
   revealInFolder(path: string): void
   appAction(action: AppAction): void
@@ -161,6 +162,7 @@ export const CH = {
   previewLoad: 'libra:preview:load',
   previewReload: 'libra:preview:reload',
   previewBounds: 'libra:preview:bounds',
+  previewSuppress: 'libra:preview:suppress',
   previewNavigate: 'libra:preview:navigate',
   previewOutline: 'libra:preview:outline',
   previewScrollTo: 'libra:preview:scroll-to',

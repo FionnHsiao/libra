@@ -24,6 +24,7 @@ const api: LibraApi = {
   loadPreview: (path) => ipcRenderer.invoke(CH.previewLoad, path),
   reloadPreview: () => ipcRenderer.send(CH.previewReload),
   setPreviewBounds: (rect: PreviewRect | null) => ipcRenderer.send(CH.previewBounds, rect),
+  setPreviewSuppressed: (suppressed) => ipcRenderer.send(CH.previewSuppress, suppressed),
   scrollPreviewTo: (index) => ipcRenderer.send(CH.previewScrollTo, index),
   revealInFolder: (path) => ipcRenderer.send(CH.reveal, path),
   appAction: (action) => ipcRenderer.send(CH.appAction, action),
