@@ -1,16 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useState, type ReactElement } from 'react'
 import type { OutlineItem, TreeEntry } from '../../shared/protocol'
 import { FilesIcon } from './MenuBar'
-
-function baseName(path: string): string {
-  const segments = path.split(/[\\/]/).filter(Boolean)
-  return segments[segments.length - 1] ?? path
-}
-
-function dirName(path: string): string {
-  const index = Math.max(path.lastIndexOf('\\'), path.lastIndexOf('/'))
-  return index > 0 ? path.slice(0, index) : path
-}
+import { baseName, dirName } from './paths'
 
 function ChevronIcon({ open }: { open: boolean }): ReactElement {
   return (

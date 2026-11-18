@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, type ReactElement } from 'rea
 import type { DocumentData, OutlineItem, PreviewRect, ViewMode } from '../../shared/protocol'
 import { Editor } from './Editor'
 import { createEditorState, editorHooks } from './editorState'
+import { baseName, dirName, isInside } from './paths'
 import { GitIcon, HomeIcon, LibraMark, MenuBar, OutlineIcon, type MenuGroup } from './MenuBar'
 import { PreviewPane } from './PreviewPane'
 import { FileTree, OutlinePanel } from './Sidebar'
@@ -20,23 +21,6 @@ interface Tab {
 interface Cursor {
   line: number
   column: number
-}
-
-function baseName(path: string): string {
-  const segments = path.split(/[\\/]/).filter(Boolean)
-  return segments[segments.length - 1] ?? path
-}
-
-function dirName(path: string): string {
-  const index = Math.max(path.lastIndexOf('\\'), path.lastIndexOf('/'))
-  return index > 0 ? path.slice(0, index) : path
-}
-
-function isInside(root: string, target: string): boolean {
-  const normalize = (value: string): string => value.replace(/[\\/]+$/, '').toLowerCase()
-  const base = normalize(root)
-  const path = normalize(target)
-  return path === base || path.startsWith(`${base}\\`) || path.startsWith(`${base}/`)
 }
 
 function describeError(error: unknown): string {
