@@ -1,9 +1,9 @@
-import { app, BrowserWindow, dialog, ipcMain, session } from 'electron'
+import { app, BrowserWindow, ipcMain, session } from 'electron'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { CH } from '../shared/protocol'
 import { installMenu } from './menu'
-import { isDirty, registerIpc, requestSaveFromRenderer } from './ipc'
+import { registerIpc } from './ipc'
 import { loadEntries } from './settings'
 import { syncWatchers } from './watcher'
 import { createOverlayHost, disposeOverlayHost } from './overlay'
@@ -16,7 +16,6 @@ const OPENABLE = /\.(html?|xhtml)$/i
 let mainWindow: BrowserWindow | null = null
 let pendingFile: string | null = null
 let rendererReady = false
-let allowClose = false
 
 registerPreviewScheme()
 
@@ -40,26 +39,6 @@ function deliverFile(filePath: string): void {
   pendingFile = filePath
 }
 
-async function confirmClose(win: BrowserWindow): Promise<void> {
-  const { response } = await dialog.showMessageBox(win, {
-    type: 'warning',
-    buttons: ['保存', '不保存', '取消'],
-    defaultId: 0,
-    cancelId: 2,
-    message: '文档有未保存的修改',
-    detail: '关闭前要保存吗？'
-  })
-
-  if (response === 2) return
-  if (response === 0) {
-    const saved = await requestSaveFromRenderer(win)
-    if (!saved) return
-  }
-
-  allowClose = true
-  win.close()
-}
-
 function createWindow(): void {
   const win = createMainWindow()
   mainWindow = win
@@ -68,12 +47,6 @@ function createWindow(): void {
   const contentsId = win.webContents.id
   createPreviewHost(win)
   createOverlayHost(win)
-
-  win.on('close', (event) => {
-    if (allowClose || !isDirty()) return
-    event.preventDefault()
-    void confirmClose(win)
-  })
 
   win.on('closed', () => {
     disposePreviewHost(contentsId)

@@ -113,8 +113,8 @@ try {
 
   const ui = JSON.parse(
     await shell.evaluate(`JSON.stringify({
+      hasPreview: !!document.querySelector('.preview-pane'),
       hasEditor: !!document.querySelector('.cm-editor'),
-      editorHidden: getComputedStyle(document.querySelector('.editor-pane')).display === 'none',
       treeRows: document.querySelectorAll('.panel-left .tree-row').length,
       activeName: document.querySelector('.tree-row.active .tree-label')?.textContent ?? '',
       outlinePanels: document.querySelectorAll('.panel-right').length,
@@ -127,7 +127,7 @@ try {
       centerBg: getComputedStyle(document.querySelector('.tabbar')).backgroundColor
     })`)
   )
-  check('默认进入阅读模式（源码隐藏）', ui.hasEditor && ui.editorHidden, `display=${ui.editorHidden ? 'none' : 'block'}`)
+  check('纯阅读界面（没有编辑器）', ui.hasPreview && !ui.hasEditor, `preview=${ui.hasPreview} editor=${ui.hasEditor}`)
   check('左侧文件树列出根目录与文件', ui.treeRows >= 3, `${ui.treeRows} 行，当前 ${ui.activeName}`)
   check('文件树上方是星星罐标题', ui.jarTitle === '星星罐', ui.jarTitle)
 
@@ -142,24 +142,48 @@ try {
   await sleep(300)
   await shell.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
   await sleep(200)
+
+  // 菜单悬停切换：打开「文件」后把鼠标移到「视图」上，内容应整体换掉
+  await shell.evaluate(`[...document.querySelectorAll('.menubar-button')].find((b) => b.textContent.trim() === '文件').click()`)
+  await sleep(600)
+  const fileMenu = JSON.parse((await overlayLabels()) ?? '[]')
+  await shell.evaluate(`[...document.querySelectorAll('.menubar-button')].find((b) => b.textContent.trim() === '视图').dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))`)
+  await sleep(700)
+  const switched = JSON.parse((await overlayLabels()) ?? '[]')
+  check(
+    '悬停其他菜单会切换下拉内容',
+    fileMenu.includes('退出') && switched.includes('放大') && !switched.includes('退出'),
+    `文件 ${fileMenu.slice(0, 2).join('/')}… → 视图 ${switched.slice(0, 2).join('/')}…`
+  )
+
+  // 加号菜单的卡片必须贴着视图顶部，不能盖住加号按钮本身
+  await shell.evaluate(`[...document.querySelectorAll('.menubar-button')].find((b) => b.textContent.trim() === '文件').click()`)
+  await sleep(300)
+  await shell.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
+  await sleep(300)
+  await shell.evaluate(`document.querySelector('.jar-actions button').click()`)
+  await sleep(600)
+  const cardTop = await withOverlay((overlay) => overlay.evaluate(`Math.round(document.getElementById('card').getBoundingClientRect().top)`))
+  check('弹层不覆盖触发按钮', cardTop === 0, `卡片距视图顶部 ${cardTop}px`)
+  await withOverlay((overlay) => overlay.evaluate(`window.overlayApi.close()`))
+  await sleep(300)
   check(
     '顶栏与左侧图标栏同色、与文件树区分',
     ui.chromeBg === ui.railBg && ui.railBg !== ui.treeBg,
     `chrome ${ui.chromeBg} / rail ${ui.railBg} / tree ${ui.treeBg}`
   )
-  check('标题栏内的自绘菜单', ui.hasMenubar === 4, `${ui.hasMenubar} 个菜单`)
+  check('标题栏内的自绘菜单', ui.hasMenubar === 3, `${ui.hasMenubar} 个菜单`)
   check('大纲默认隐藏', ui.outlinePanels === 0, `${ui.outlinePanels} 个面板`)
-  check('左侧图标栏有主页与 Git 两个按钮', ui.railButtons === 2, `${ui.railButtons} 个按钮`)
+  check('左侧图标栏只保留主页按钮', ui.railButtons === 1, `${ui.railButtons} 个按钮`)
 
-  await shell.evaluate(`[...document.querySelectorAll('.menubar-button')].find((b) => b.textContent.trim() === '视图').click()`)
-  await sleep(600)
-  await overlayClick('编辑模式')
-  await sleep(600)
-  const editDisplay = await shell.evaluate(`getComputedStyle(document.querySelector('.editor-pane')).display`)
+  // 隐藏文件列表后点主页，应重新显示
+  await shell.evaluate(`document.querySelector('.jar-actions button:nth-of-type(5)').click()`)
+  await sleep(400)
+  const hiddenByHeader = await shell.evaluate(`document.querySelectorAll('.panel-left').length`)
   await shell.evaluate(`document.querySelector('.rail-btn').click()`)
-  await sleep(500)
-  const homeDisplay = await shell.evaluate(`getComputedStyle(document.querySelector('.editor-pane')).display`)
-  check('主页按钮回到阅读视图', editDisplay !== 'none' && homeDisplay === 'none', `${editDisplay} -> ${homeDisplay}`)
+  await sleep(400)
+  const shownByHome = await shell.evaluate(`document.querySelectorAll('.panel-left').length`)
+  check('隐藏后用主页按钮恢复文件列表', hiddenByHeader === 0 && shownByHome === 1, `${hiddenByHeader} -> ${shownByHome}`)
 
   const widthBefore = await shell.evaluate(`Math.round(document.querySelector('.panel-left').getBoundingClientRect().width)`)
   await shell.evaluate(`(() => {
@@ -256,31 +280,6 @@ try {
     })()`)
   )
   check('GBK / CRLF 识别正确', doc.encoding === 'gb18030' && doc.eol === 'CRLF' && doc.size === 197, `${doc.encoding} / ${doc.eol} / ${doc.size}B`)
-
-  const passthrough = JSON.parse(
-    await shell.evaluate(`(async () => {
-      const d = await window.libra.read(${JSON.stringify(FIXTURE)})
-      return JSON.stringify(await window.libra.save({ path: d.path, text: d.text, encoding: d.encoding, bom: d.bom, eol: d.eol }))
-    })()`)
-  )
-  check('原样保存不改一个字节', passthrough.ok && hash() === before, `bytes=${passthrough.bytes}`)
-
-  const edited = JSON.parse(
-    await shell.evaluate(`(async () => {
-      const d = await window.libra.read(${JSON.stringify(FIXTURE)})
-      const text = d.text.replace('中文标题', '中文标题（已编辑）')
-      await window.libra.save({ path: d.path, text, encoding: d.encoding, bom: d.bom, eol: d.eol })
-      const again = await window.libra.read(d.path)
-      return JSON.stringify({ changed: again.text.includes('已编辑'), encoding: again.encoding, eol: again.eol })
-    })()`)
-  )
-  check('编辑中文后编码与换行保持', edited.changed && edited.encoding === 'gb18030' && edited.eol === 'CRLF', JSON.stringify(edited))
-
-  await shell.evaluate(`(async () => {
-    const d = await window.libra.read(${JSON.stringify(FIXTURE)})
-    return window.libra.save({ path: d.path, text: ${JSON.stringify(doc.text)}, encoding: ${JSON.stringify(doc.encoding)}, bom: ${doc.bom}, eol: ${JSON.stringify(doc.eol)} })
-  })()`)
-  check('恢复原文后字节完全一致', hash() === before, `sha=${hash().slice(0, 12)}`)
 
   await shell.evaluate(`document.querySelector('.tab.active .tab-close').click()`)
   await sleep(700)

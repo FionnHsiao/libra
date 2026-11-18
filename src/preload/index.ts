@@ -11,8 +11,6 @@ const api: LibraApi = {
   platform: process.platform,
   openDialog: () => ipcRenderer.invoke(CH.openDialog),
   read: (path) => ipcRenderer.invoke(CH.read, path),
-  save: (payload) => ipcRenderer.invoke(CH.save, payload),
-  saveAs: (payload) => ipcRenderer.invoke(CH.saveAs, payload),
   listFolder: (dir) => ipcRenderer.invoke(CH.listFolder, dir),
   pickFolder: () => ipcRenderer.invoke(CH.pickFolder),
   pickFile: () => ipcRenderer.invoke(CH.pickFile),
@@ -43,8 +41,6 @@ const api: LibraApi = {
   scrollPreviewTo: (index) => ipcRenderer.send(CH.previewScrollTo, index),
   revealInFolder: (path) => ipcRenderer.send(CH.reveal, path),
   appAction: (action) => ipcRenderer.send(CH.appAction, action),
-  setDirty: (dirty) => ipcRenderer.send(CH.setDirty, dirty),
-  reportSave: (ok) => ipcRenderer.send(CH.saveDone, { ok }),
   ready: () => ipcRenderer.send(CH.ready),
   pathForFile: (file) => {
     try {

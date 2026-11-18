@@ -34,27 +34,6 @@ export interface DocumentData {
   size: number
 }
 
-export interface SavePayload {
-  path: string
-  text: string
-  encoding: string
-  bom: boolean
-  eol: Eol
-}
-
-export interface SaveAsPayload {
-  text: string
-  encoding: string
-  bom: boolean
-  eol: Eol
-  suggestedPath: string | null
-}
-
-export interface SaveResult {
-  ok: boolean
-  bytes: number
-}
-
 export interface FileEntry {
   name: string
   path: string
@@ -90,20 +69,7 @@ export interface PreviewRect {
   height: number
 }
 
-export type CommandId =
-  | 'open'
-  | 'save'
-  | 'save-as'
-  | 'save-all'
-  | 'undo'
-  | 'redo'
-  | 'toggle-mode'
-  | 'toggle-files'
-  | 'toggle-outline'
-  | 'close-tab'
-  | 'find'
-  | 'reveal'
-  | 'reload-preview'
+export type CommandId = 'open' | 'close-tab' | 'toggle-files' | 'toggle-outline' | 'reveal' | 'reload-preview'
 
 export type AppAction =
   | 'quit'
@@ -128,8 +94,6 @@ export interface LibraApi {
   platform: string
   openDialog(): Promise<DocumentData | null>
   read(path: string): Promise<DocumentData>
-  save(payload: SavePayload): Promise<SaveResult>
-  saveAs(payload: SaveAsPayload): Promise<{ path: string } | null>
   listFolder(dir: string): Promise<FolderListing>
   pickFolder(): Promise<string | null>
   pickFile(): Promise<string | null>
@@ -148,8 +112,6 @@ export interface LibraApi {
   scrollPreviewTo(index: number): void
   revealInFolder(path: string): void
   appAction(action: AppAction): void
-  setDirty(dirty: boolean): void
-  reportSave(ok: boolean): void
   ready(): void
   pathForFile(file: File): string
   onFileOpened(callback: (path: string) => void): () => void
@@ -166,8 +128,6 @@ export const HTML_EXTENSIONS = ['.html', '.htm', '.xhtml'] as const
 export const CH = {
   openDialog: 'libra:file:open-dialog',
   read: 'libra:file:read',
-  save: 'libra:file:save',
-  saveAs: 'libra:file:save-as',
   listFolder: 'libra:folder:list',
   pickFolder: 'libra:folder:pick',
   pickFile: 'libra:file:pick',
@@ -177,8 +137,6 @@ export const CH = {
   entriesSet: 'libra:entries:set',
   readDir: 'libra:folder:read-dir',
   confirmDiscard: 'libra:editor:confirm-discard',
-  setDirty: 'libra:editor:set-dirty',
-  saveDone: 'libra:editor:save-done',
   fileOpened: 'libra:file:opened',
   previewLoad: 'libra:preview:load',
   previewReload: 'libra:preview:reload',

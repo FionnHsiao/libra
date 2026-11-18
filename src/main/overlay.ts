@@ -104,11 +104,13 @@ export class OverlayHost {
     if (x + width > contentWidth - 8) x = Math.max(8, contentWidth - width - 8)
     if (y + height > contentHeight - 8) y = Math.max(8, contentHeight - height - 8)
 
+    // 只在下方和左右留出阴影空间，顶部不留：
+    // 否则视图会盖住触发它的按钮，导致按钮"消失"、也无法再悬停切换
     view.setBounds({
       x: Math.round((x - SHADOW_PADDING) / zoom),
-      y: Math.round((y - SHADOW_PADDING) / zoom),
+      y: Math.round(y / zoom),
       width: Math.round((width + SHADOW_PADDING * 2) / zoom),
-      height: Math.round((height + SHADOW_PADDING * 2) / zoom)
+      height: Math.round((height + SHADOW_PADDING) / zoom)
     })
   }
 

@@ -17,14 +17,6 @@
     "icons": "node scripts/make-icons.mjs"
   },
   "dependencies": {
-    "@codemirror/autocomplete": "^6.18.0",
-    "@codemirror/commands": "^6.7.0",
-    "@codemirror/lang-html": "^6.4.9",
-    "@codemirror/language": "^6.10.0",
-    "@codemirror/search": "^6.5.0",
-    "@codemirror/state": "^6.4.1",
-    "@codemirror/view": "^6.34.0",
-    "@lezer/highlight": "^1.2.5",
     "chardet": "^2.1.0",
     "iconv-lite": "^0.6.3",
     "react": "^18.3.1",

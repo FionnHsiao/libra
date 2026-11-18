@@ -5,16 +5,13 @@ import {
   ALLOWED_EXTENSIONS,
   CH,
   HTML_EXTENSIONS,
-  MAX_DOCUMENT_BYTES,
   type DirListing,
   type OverlayOpenPayload,
   type FileEntry,
   type FolderListing,
   type PreviewRect,
-  type SaveAsPayload,
-  type SavePayload
 } from '../shared/protocol'
-import { readDocument, writeTextAtomic } from './files'
+import { readDocument } from './files'
 import { loadEntries, saveEntries } from './settings'
 import { syncWatchers } from './watcher'
 import { adjustZoom, showShortcutsDialog } from './menu'
@@ -25,12 +22,6 @@ const allowedExtensions = new Set<string>(ALLOWED_EXTENSIONS)
 const htmlExtensions = new Set<string>(HTML_EXTENSIONS)
 const MAX_LISTED_FILES = 500
 
-let dirty = false
-let pendingSave: ((ok: boolean) => void) | null = null
-
-export function isDirty(): boolean {
-  return dirty
-}
 
 export function assertDocumentPath(value: unknown): string {
   if (typeof value !== 'string' || value.length === 0 || value.length > 4096) {
@@ -82,52 +73,6 @@ function assertDirectoryPath(value: unknown): string {
   return resolve(value)
 }
 
-function assertText(value: unknown): string {
-  if (typeof value !== 'string') {
-    throw new Error('文档内容必须是字符串')
-  }
-  if (Buffer.byteLength(value, 'utf8') > MAX_DOCUMENT_BYTES) {
-    throw new Error('文档过大')
-  }
-  return value
-}
-
-function assertEncoding(value: unknown): string {
-  if (typeof value !== 'string' || value.length === 0 || value.length > 32) {
-    throw new Error('非法的编码')
-  }
-  return value
-}
-
-function assertSavePayload(value: unknown): SavePayload {
-  if (typeof value !== 'object' || value === null) {
-    throw new Error('保存参数不合法')
-  }
-  const payload = value as Partial<SavePayload>
-  return {
-    path: assertDocumentPath(payload.path),
-    text: assertText(payload.text),
-    encoding: assertEncoding(payload.encoding),
-    bom: payload.bom === true,
-    eol: payload.eol === 'CRLF' ? 'CRLF' : 'LF'
-  }
-}
-
-function assertSaveAsPayload(value: unknown): SaveAsPayload {
-  if (typeof value !== 'object' || value === null) {
-    throw new Error('另存为参数不合法')
-  }
-  const payload = value as Partial<SaveAsPayload>
-  const suggested = payload.suggestedPath
-  return {
-    text: assertText(payload.text),
-    encoding: assertEncoding(payload.encoding),
-    bom: payload.bom === true,
-    eol: payload.eol === 'CRLF' ? 'CRLF' : 'LF',
-    suggestedPath: typeof suggested === 'string' && isAbsolute(suggested) ? suggested : null
-  }
-}
-
 function parseRect(value: unknown): PreviewRect | null {
   if (typeof value !== 'object' || value === null) return null
   const rect = value as Partial<PreviewRect>
@@ -139,22 +84,6 @@ function parseRect(value: unknown): PreviewRect | null {
     width: Math.max(0, rect.width as number),
     height: Math.max(0, rect.height as number)
   }
-}
-
-export function requestSaveFromRenderer(win: BrowserWindow): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (pendingSave) pendingSave(false)
-    const timer = setTimeout(() => {
-      pendingSave = null
-      resolve(false)
-    }, 15000)
-    pendingSave = (ok) => {
-      clearTimeout(timer)
-      pendingSave = null
-      resolve(ok)
-    }
-    win.webContents.send(CH.command, { id: 'save-all' })
-  })
 }
 
 const openFilters = [
@@ -174,30 +103,6 @@ export function registerIpc(): void {
     const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
     if (result.canceled || result.filePaths.length === 0) return null
     return readDocument(assertDocumentPath(result.filePaths[0]))
-  })
-
-  ipcMain.handle(CH.save, async (_event, rawPayload: unknown) => {
-    const payload = assertSavePayload(rawPayload)
-    const bytes = await writeTextAtomic(payload.path, payload.text, payload.encoding, payload.bom, payload.eol)
-    return { ok: true, bytes }
-  })
-
-  ipcMain.handle(CH.saveAs, async (event, rawPayload: unknown) => {
-    const payload = assertSaveAsPayload(rawPayload)
-    const win = BrowserWindow.fromWebContents(event.sender)
-    const options = {
-      title: '另存为',
-      defaultPath: payload.suggestedPath ?? 'untitled.html',
-      filters: [
-        { name: 'HTML 文档', extensions: ['html'] },
-        { name: '文本', extensions: ['txt', 'md'] }
-      ]
-    }
-    const result = win ? await dialog.showSaveDialog(win, options) : await dialog.showSaveDialog(options)
-    if (result.canceled || !result.filePath) return null
-    const target = assertDocumentPath(result.filePath)
-    await writeTextAtomic(target, payload.text, payload.encoding, payload.bom, payload.eol)
-    return { path: target }
   })
 
   ipcMain.handle(CH.readDir, async (_event, rawDir: unknown): Promise<DirListing> => {
@@ -420,12 +325,4 @@ export function registerIpc(): void {
     }
   })
 
-  ipcMain.on(CH.setDirty, (_event, value: unknown) => {
-    dirty = value === true
-  })
-
-  ipcMain.on(CH.saveDone, (_event, value: unknown) => {
-    const ok = typeof value === 'object' && value !== null && (value as { ok?: unknown }).ok === true
-    pendingSave?.(ok)
-  })
 }

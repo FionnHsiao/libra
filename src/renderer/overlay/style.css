@@ -7,7 +7,8 @@ body {
 }
 
 body {
-  padding: 28px;
+  /* 顶部不留白：视图从卡片上边缘开始，避免遮住触发按钮 */
+  padding: 0 28px 28px 28px;
   box-sizing: border-box;
   font-family: 'Segoe UI', 'Microsoft YaHei', system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;

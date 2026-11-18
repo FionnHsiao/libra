@@ -3,13 +3,9 @@ import { CH, type CommandId } from '../shared/protocol'
 
 const SHORTCUTS_TEXT = [
   '打开              Ctrl+O',
-  '保存              Ctrl+S',
-  '另存为            Ctrl+Shift+S',
   '关闭标签页         Ctrl+W',
-  '切换阅读 / 编辑    Ctrl+E',
   '文件列表           Ctrl+B',
   '大纲              Ctrl+Shift+B',
-  '在编辑模式查找      Ctrl+F',
   '放大 / 缩小        Ctrl+= / Ctrl+-',
   '实际大小          Ctrl+0',
   '全屏              F11'
@@ -114,24 +110,9 @@ export function handleShortcutInput(event: ElectronEvent, input: Input, win: Bro
     send(win, 'open')
     return
   }
-  if (key === 's' && shift) {
-    event.preventDefault()
-    send(win, 'save-as')
-    return
-  }
-  if (key === 's') {
-    event.preventDefault()
-    send(win, 'save')
-    return
-  }
   if (key === 'w' && !shift) {
     event.preventDefault()
     send(win, 'close-tab')
-    return
-  }
-  if (key === 'e' && !shift) {
-    event.preventDefault()
-    send(win, 'toggle-mode')
     return
   }
   if (key === 'b' && shift) {
@@ -144,13 +125,13 @@ export function handleShortcutInput(event: ElectronEvent, input: Input, win: Bro
     send(win, 'toggle-files')
     return
   }
-  if (key === 'f' && !shift) {
-    event.preventDefault()
-    send(win, 'find')
-    return
-  }
   if (key === 'r' && !shift) {
     event.preventDefault()
     send(win, 'reload-preview')
+  }
+
+  if (process.platform === 'darwin' && input.meta && key === 'q') {
+    event.preventDefault()
+    app.quit()
   }
 }

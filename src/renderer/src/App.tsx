@@ -1,27 +1,14 @@
-import type { EditorState } from '@codemirror/state'
-import type { EditorView } from '@codemirror/view'
-import { redo, undo } from '@codemirror/commands'
-import { openSearchPanel } from '@codemirror/search'
 import { useCallback, useEffect, useRef, useState, type ReactElement } from 'react'
-import type { DocumentData, JarEntry, OutlineItem, PreviewRect, ViewMode } from '../../shared/protocol'
-import { Editor } from './Editor'
-import { createEditorState, editorHooks } from './editorState'
-import { baseName, isInside } from './paths'
-import { ChevronDownIcon, GitIcon, HomeIcon, LibraMark, MenuBar, OutlineIcon, type MenuGroup } from './MenuBar'
+import type { DocumentData, JarEntry, OutlineItem, PreviewRect } from '../../shared/protocol'
+import { ChevronDownIcon, HomeIcon, LibraMark, MenuBar, OutlineIcon, type MenuGroup } from './MenuBar'
 import { closeOverlayMenu, installOverlayBridge, openOverlayList } from './overlayMenu'
+import { baseName, isInside } from './paths'
 import { PreviewPane } from './PreviewPane'
 import { FileTree, OutlinePanel } from './Sidebar'
 
 interface Tab {
   path: string
   data: DocumentData
-  state: EditorState | null
-  dirty: boolean
-}
-
-interface Cursor {
-  line: number
-  column: number
 }
 
 function describeError(error: unknown): string {
@@ -36,7 +23,7 @@ function EmptyState({ onOpen }: { onOpen: () => void }): ReactElement {
     <div className="empty">
       <div className="empty-mark">L</div>
       <h1>把一个 HTML 文件交给 Libra</h1>
-      <p>拖进来，或按 Ctrl+O。默认以渲染后的样子打开，想看源码按 Ctrl+E。</p>
+      <p>拖进来，或按 Ctrl+O。以渲染后的样子打开，左侧是文件树，右侧可以展开大纲。</p>
       <button className="primary" type="button" onClick={onOpen}>
         打开文档
       </button>
@@ -48,8 +35,6 @@ export function App(): ReactElement {
   const [tabs, setTabs] = useState<Tab[]>([])
   const [activePath, setActivePath] = useState<string | null>(null)
   const [entries, setEntries] = useState<JarEntry[]>([])
-  const [mode, setMode] = useState<ViewMode>('read')
-  const [cursor, setCursor] = useState<Cursor>({ line: 1, column: 1 })
   const [outline, setOutline] = useState<OutlineItem[]>([])
   const [status, setStatus] = useState<string | null>(null)
   const [filesVisible, setFilesVisible] = useState(true)
@@ -61,22 +46,11 @@ export function App(): ReactElement {
   const tabsRef = useRef<Tab[]>([])
   const activePathRef = useRef<string | null>(null)
   const entriesRef = useRef<JarEntry[]>([])
-  const viewRef = useRef<EditorView | null>(null)
 
   const commit = useCallback((next: Tab[]) => {
     tabsRef.current = next
     setTabs(next)
   }, [])
-
-  const markDirty = useCallback(
-    (path: string) => {
-      const current = tabsRef.current
-      const tab = current.find((item) => item.path === path)
-      if (!tab || tab.dirty) return
-      commit(current.map((item) => (item.path === path ? { ...item, dirty: true } : item)))
-    },
-    [commit]
-  )
 
   const activate = useCallback((path: string) => {
     if (activePathRef.current === path) return
@@ -90,12 +64,11 @@ export function App(): ReactElement {
     window.libra.setEntries(next)
   }, [])
 
-  /** 打开单个文件时，只往星星罐里放一条"文件"，不展开它所在的目录 */
+  /** 打开单个文件：只往星星罐里放一条"文件"，不展开它所在的目录 */
   const ensureEntry = useCallback(
     (path: string) => {
       const list = entriesRef.current
-      const covered = list.some((entry) => entry.kind === 'dir' && isInside(entry.path, path))
-      if (covered) return
+      if (list.some((entry) => entry.kind === 'dir' && isInside(entry.path, path))) return
       if (list.some((entry) => entry.kind === 'file' && entry.path.toLowerCase() === path.toLowerCase())) return
       commitEntries([...list, { kind: 'file', path }])
     },
@@ -108,15 +81,83 @@ export function App(): ReactElement {
       if (!dir) return
       setFilesVisible(true)
       if (entriesRef.current.some((entry) => entry.kind === 'dir' && entry.path.toLowerCase() === dir.toLowerCase())) return
-      // 加目录时，把已经被这个目录覆盖的独立文件条目去掉，避免重复
-      const kept = entriesRef.current.filter(
-        (entry) => !(entry.kind === 'file' && isInside(dir, entry.path))
-      )
+      const kept = entriesRef.current.filter((entry) => !(entry.kind === 'file' && isInside(dir, entry.path)))
       commitEntries([...kept, { kind: 'dir', path: dir }])
     } catch (error) {
       setStatus(describeError(error))
     }
   }, [commitEntries])
+
+  const openFile = useCallback(
+    async (path: string) => {
+      const existing = tabsRef.current.find((item) => item.path === path)
+      if (existing) {
+        activate(path)
+        return
+      }
+      try {
+        const data = await window.libra.read(path)
+        commit([...tabsRef.current, { path: data.path, data }])
+        ensureEntry(data.path)
+        activate(data.path)
+      } catch (error) {
+        setStatus(describeError(error))
+      }
+    },
+    [activate, commit, ensureEntry]
+  )
+
+  const addFile = useCallback(async () => {
+    try {
+      const path = await window.libra.pickFile()
+      if (!path) return
+      setFilesVisible(true)
+      await openFile(path)
+    } catch (error) {
+      setStatus(describeError(error))
+    }
+  }, [openFile])
+
+  const openViaDialog = useCallback(async () => {
+    try {
+      const data = await window.libra.openDialog()
+      if (!data) return
+      const existing = tabsRef.current.find((item) => item.path === data.path)
+      if (existing) {
+        existing.data = data
+        activate(data.path)
+        return
+      }
+      commit([...tabsRef.current, { path: data.path, data }])
+      ensureEntry(data.path)
+      activate(data.path)
+    } catch (error) {
+      setStatus(describeError(error))
+    }
+  }, [activate, commit, ensureEntry])
+
+  const closeTab = useCallback(
+    (path: string) => {
+      if (!tabsRef.current.some((item) => item.path === path)) return
+      const next = tabsRef.current.filter((item) => item.path !== path)
+      commit(next)
+
+      if (activePathRef.current === path) {
+        const fallback = next[next.length - 1] ?? null
+        activePathRef.current = fallback ? fallback.path : null
+        setActivePath(activePathRef.current)
+      }
+    },
+    [commit]
+  )
+
+  const removeEntry = useCallback(
+    (path: string) => {
+      commitEntries(entriesRef.current.filter((entry) => entry.path.toLowerCase() !== path.toLowerCase()))
+      setStatus('已移出星星罐（磁盘文件未删除）')
+    },
+    [commitEntries]
+  )
 
   const handleRenamed = useCallback(
     (from: string, to: string) => {
@@ -154,188 +195,12 @@ export function App(): ReactElement {
     [commit, commitEntries]
   )
 
-  const removeEntry = useCallback(
-    (path: string) => {
-      commitEntries(entriesRef.current.filter((entry) => entry.path.toLowerCase() !== path.toLowerCase()))
-      setStatus('已移出星星罐（磁盘文件未删除）')
-    },
-    [commitEntries]
-  )
-
-  const openFile = useCallback(
-    async (path: string) => {
-      const existing = tabsRef.current.find((item) => item.path === path)
-      if (existing) {
-        ensureEntry(path)
-        activate(path)
-        return
-      }
-
-      try {
-        const data = await window.libra.read(path)
-        const tab: Tab = { path: data.path, data, state: null, dirty: false }
-        commit([...tabsRef.current, tab])
-        ensureEntry(data.path)
-        activate(data.path)
-      } catch (error) {
-        setStatus(describeError(error))
-      }
-    },
-    [activate, commit, ensureEntry]
-  )
-
-  const openViaDialog = useCallback(async () => {
-    try {
-      const data = await window.libra.openDialog()
-      if (!data) return
-      const existing = tabsRef.current.find((item) => item.path === data.path)
-      if (existing) {
-        existing.data = data
-        existing.state = null
-        ensureEntry(data.path)
-        activate(data.path)
-        return
-      }
-      const tab: Tab = { path: data.path, data, state: null, dirty: false }
-      commit([...tabsRef.current, tab])
-      ensureEntry(data.path)
-      activate(data.path)
-    } catch (error) {
-      setStatus(describeError(error))
-    }
-  }, [activate, commit, ensureEntry])
-
-  const addFile = useCallback(async () => {
-    try {
-      const path = await window.libra.pickFile()
-      if (!path) return
-      setFilesVisible(true)
-      await openFile(path)
-    } catch (error) {
-      setStatus(describeError(error))
-    }
-  }, [openFile])
-
-  const saveTab = useCallback(
-    async (tab: Tab): Promise<boolean> => {
-      if (!tab.state) return true
-      try {
-        const text = tab.state.doc.toString()
-        const result = await window.libra.save({
-          path: tab.path,
-          text,
-          encoding: tab.data.encoding,
-          bom: tab.data.bom,
-          eol: tab.data.eol
-        })
-        commit(
-          tabsRef.current.map((item) =>
-            item.path === tab.path
-              ? { ...item, dirty: false, data: { ...item.data, text, size: result.bytes } }
-              : item
-          )
-        )
-        return true
-      } catch (error) {
-        setStatus(describeError(error))
-        return false
-      }
-    },
-    [commit]
-  )
-
-  const saveActive = useCallback(async (): Promise<boolean> => {
-    const path = activePathRef.current
-    if (!path) return false
-    const tab = tabsRef.current.find((item) => item.path === path)
-    if (!tab) return false
-    const ok = await saveTab(tab)
-    if (ok) {
-      setStatus('已保存')
-      window.libra.reloadPreview()
-    }
-    return ok
-  }, [saveTab])
-
-  const saveAll = useCallback(async (): Promise<boolean> => {
-    for (const tab of tabsRef.current) {
-      if (!tab.dirty) continue
-      const ok = await saveTab(tab)
-      if (!ok) return false
-    }
-    window.libra.reloadPreview()
-    return true
-  }, [saveTab])
-
-  const closeTab = useCallback(
-    async (path: string) => {
-      const tab = tabsRef.current.find((item) => item.path === path)
-      if (!tab) return
-      if (tab.dirty) {
-        const confirmed = await window.libra.confirmDiscard()
-        if (!confirmed) return
-      }
-
-      const next = tabsRef.current.filter((item) => item.path !== path)
-      commit(next)
-
-      if (activePathRef.current === path) {
-        const fallback = next[next.length - 1] ?? null
-        activePathRef.current = fallback ? fallback.path : null
-        setActivePath(activePathRef.current)
-      }
-    },
-    [commit]
-  )
-
-  const saveDocumentAs = useCallback(async (): Promise<boolean> => {
-    const path = activePathRef.current
-    const view = viewRef.current
-    if (!path || !view) return false
-    const tab = tabsRef.current.find((item) => item.path === path)
-    if (!tab) return false
-
-    try {
-      const result = await window.libra.saveAs({
-        text: view.state.doc.toString(),
-        encoding: tab.data.encoding,
-        bom: tab.data.bom,
-        eol: tab.data.eol,
-        suggestedPath: tab.path
-      })
-      if (!result) return true
-      const data = await window.libra.read(result.path)
-      commit([
-        ...tabsRef.current.filter((item) => item.path !== path),
-        { path: result.path, data, state: null, dirty: false }
-      ])
-      activePathRef.current = result.path
-      setActivePath(result.path)
-      ensureEntry(result.path)
-      setStatus(`已另存为 ${baseName(result.path)}`)
-      return true
-    } catch (error) {
-      setStatus(describeError(error))
-      return false
-    }
-  }, [commit, ensureEntry])
-
   const handleBounds = useCallback((rect: PreviewRect | null) => {
     window.libra.setPreviewBounds(rect)
   }, [])
 
   const handleOutlineJump = useCallback((index: number) => {
     window.libra.scrollPreviewTo(index)
-  }, [])
-
-  const openFind = useCallback(() => {
-    setMode('edit')
-    window.setTimeout(() => {
-      const view = viewRef.current
-      if (!view) return
-      view.focus()
-      openSearchPanel(view)
-    }, 80)
   }, [])
 
   const startResize = useCallback(
@@ -386,7 +251,7 @@ export function App(): ReactElement {
         },
         onClose: () => {
           setTabListOpen(false)
-          void closeTab(tab.path)
+          closeTab(tab.path)
         }
       }))
 
@@ -396,26 +261,7 @@ export function App(): ReactElement {
     [activate, closeTab, tabListOpen]
   )
 
-  const editorCommand = useCallback((action: 'undo' | 'redo') => {
-    const view = viewRef.current
-    if (!view) return
-    if (action === 'undo') undo(view)
-    else redo(view)
-  }, [])
-
-  useEffect(() => {
-    editorHooks.onCursor = (line, column) => setCursor({ line, column })
-    editorHooks.onState = (state) => {
-      const path = activePathRef.current
-      if (!path) return
-      const tab = tabsRef.current.find((item) => item.path === path)
-      if (tab) tab.state = state
-    }
-    editorHooks.onChange = () => {
-      const path = activePathRef.current
-      if (path) markDirty(path)
-    }
-  }, [markDirty])
+  useEffect(() => installOverlayBridge(), [])
 
   useEffect(() => {
     window.libra
@@ -432,30 +278,29 @@ export function App(): ReactElement {
   }, [])
 
   useEffect(() => {
-    if (window.libra.platform === 'darwin') document.body.classList.add('platform-mac')
-  }, [])
-
-  useEffect(() => installOverlayBridge(), [])
-
-  useEffect(() => {
-    window.libra.setDirty(tabs.some((tab) => tab.dirty))
-  }, [tabs])
+    const active = tabs.find((tab) => tab.path === activePath) ?? null
+    document.title = active ? `Libra — ${baseName(active.path)}` : 'Libra'
+  }, [tabs, activePath])
 
   useEffect(() => {
     if (!activePath) {
       window.libra.setPreviewBounds(null)
       return
     }
-    const tab = tabsRef.current.find((item) => item.path === activePath)
-    const view = viewRef.current
-    if (!tab || !view) return
-
-    const state = tab.state ?? createEditorState(tab.data.text)
-    tab.state = state
-    view.setState(state)
     setOutline([])
-    void window.libra.loadPreview(tab.path).catch(() => undefined)
+    void window.libra.loadPreview(activePath).catch(() => undefined)
   }, [activePath])
+
+  useEffect(() => {
+    const container = document.querySelector('.tabs') as HTMLElement | null
+    const active = container?.querySelector('.tab.active') as HTMLElement | null
+    if (!container || !active) return
+
+    const box = container.getBoundingClientRect()
+    const tab = active.getBoundingClientRect()
+    if (tab.left < box.left) container.scrollLeft -= box.left - tab.left + 8
+    else if (tab.right > box.right) container.scrollLeft += tab.right - box.right + 8
+  }, [activePath, tabs.length])
 
   useEffect(() => {
     const offCommand = window.libra.onCommand((message) => {
@@ -463,17 +308,9 @@ export function App(): ReactElement {
         void openViaDialog()
         return
       }
-      if (message.id === 'save-as') {
-        void saveDocumentAs()
-        return
-      }
       if (message.id === 'close-tab') {
         const current = activePathRef.current
-        if (current) void closeTab(current)
-        return
-      }
-      if (message.id === 'toggle-mode') {
-        setMode((current) => (current === 'read' ? 'edit' : 'read'))
+        if (current) closeTab(current)
         return
       }
       if (message.id === 'toggle-files') {
@@ -484,10 +321,6 @@ export function App(): ReactElement {
         setOutlineVisible((current) => !current)
         return
       }
-      if (message.id === 'find') {
-        openFind()
-        return
-      }
       if (message.id === 'reveal') {
         const current = activePathRef.current
         if (current) window.libra.revealInFolder(current)
@@ -495,13 +328,7 @@ export function App(): ReactElement {
       }
       if (message.id === 'reload-preview') {
         window.libra.reloadPreview()
-        return
       }
-      if (message.id === 'save-all') {
-        void saveAll().then((ok) => window.libra.reportSave(ok))
-        return
-      }
-      void saveActive().then((ok) => window.libra.reportSave(ok))
     })
     const offOpened = window.libra.onFileOpened((path) => {
       void openFile(path)
@@ -520,7 +347,7 @@ export function App(): ReactElement {
       offNavigate()
       offOutline()
     }
-  }, [openFile, openViaDialog, saveActive, saveAll, saveDocumentAs, openFind, closeTab])
+  }, [openFile, openViaDialog, closeTab])
 
   useEffect(() => {
     const handleDragOver = (event: DragEvent): void => {
@@ -547,17 +374,6 @@ export function App(): ReactElement {
   }, [openFile])
 
   useEffect(() => {
-    const container = document.querySelector('.tabs') as HTMLElement | null
-    const active = container?.querySelector('.tab.active') as HTMLElement | null
-    if (!container || !active) return
-
-    const box = container.getBoundingClientRect()
-    const tab = active.getBoundingClientRect()
-    if (tab.left < box.left) container.scrollLeft -= box.left - tab.left + 8
-    else if (tab.right > box.right) container.scrollLeft += tab.right - box.right + 8
-  }, [activePath, tabs.length])
-
-  useEffect(() => {
     if (!status) return undefined
     const timer = window.setTimeout(() => setStatus(null), 2600)
     return () => window.clearTimeout(timer)
@@ -580,57 +396,17 @@ export function App(): ReactElement {
           }
         },
         { type: 'separator' },
-        { type: 'item', label: '保存', accelerator: 'Ctrl+S', disabled: !hasTab, onSelect: () => void saveActive() },
-        {
-          type: 'item',
-          label: '另存为…',
-          accelerator: 'Ctrl+Shift+S',
-          disabled: !hasTab,
-          onSelect: () => void saveDocumentAs()
-        },
         {
           type: 'item',
           label: '关闭标签页',
           accelerator: 'Ctrl+W',
           disabled: !hasTab,
           onSelect: () => {
-            if (activeTab) void closeTab(activeTab.path)
+            if (activeTab) closeTab(activeTab.path)
           }
         },
         { type: 'separator' },
         { type: 'item', label: '退出', accelerator: 'Alt+F4', onSelect: () => window.libra.appAction('quit') }
-      ]
-    },
-    {
-      label: '编辑',
-      items: [
-        {
-          type: 'item',
-          label: '撤销',
-          accelerator: 'Ctrl+Z',
-          disabled: !hasTab,
-          onSelect: () => editorCommand('undo')
-        },
-        {
-          type: 'item',
-          label: '重做',
-          accelerator: 'Ctrl+Y',
-          disabled: !hasTab,
-          onSelect: () => editorCommand('redo')
-        },
-        { type: 'separator' },
-        { type: 'item', label: '剪切', accelerator: 'Ctrl+X', onSelect: () => window.libra.appAction('cut') },
-        { type: 'item', label: '复制', accelerator: 'Ctrl+C', onSelect: () => window.libra.appAction('copy') },
-        { type: 'item', label: '粘贴', accelerator: 'Ctrl+V', onSelect: () => window.libra.appAction('paste') },
-        { type: 'item', label: '全选', accelerator: 'Ctrl+A', onSelect: () => window.libra.appAction('select-all') },
-        { type: 'separator' },
-        {
-          type: 'item',
-          label: '查找 / 替换…',
-          accelerator: 'Ctrl+F',
-          disabled: !hasTab,
-          onSelect: () => openFind()
-        }
       ]
     },
     {
@@ -649,13 +425,6 @@ export function App(): ReactElement {
           accelerator: 'Ctrl+Shift+B',
           checked: outlineVisible,
           onSelect: () => setOutlineVisible((current) => !current)
-        },
-        {
-          type: 'item',
-          label: '编辑模式',
-          accelerator: 'Ctrl+E',
-          checked: mode === 'edit',
-          onSelect: () => setMode((current) => (current === 'read' ? 'edit' : 'read'))
         },
         { type: 'separator' },
         { type: 'item', label: '实际大小', accelerator: 'Ctrl+0', onSelect: () => window.libra.appAction('zoom-reset') },
@@ -678,8 +447,7 @@ export function App(): ReactElement {
     }
   ]
 
-  const activeName = activeTab ? baseName(activeTab.path) : 'Libra'
-  const titleText = status ?? (activeTab ? `${activeName}${activeTab.dirty ? ' •' : ''}` : 'Libra')
+  const titleText = status ?? (activeTab ? baseName(activeTab.path) : 'Libra')
 
   return (
     <div className="app">
@@ -696,24 +464,12 @@ export function App(): ReactElement {
         <nav className="rail" aria-label="主导航">
           <button
             type="button"
-            className={mode === 'read' ? 'rail-btn on' : 'rail-btn'}
-            title="主页：回到阅读视图"
+            className="rail-btn on"
+            title="主页"
             aria-label="主页"
-            onClick={() => {
-              setMode('read')
-              setFilesVisible(true)
-            }}
+            onClick={() => setFilesVisible(true)}
           >
             <HomeIcon />
-          </button>
-          <button
-            type="button"
-            className="rail-btn"
-            title="Git 同步（尚未实现）"
-            aria-label="Git 同步"
-            onClick={() => setStatus('Git 同步还没做，先占个位置')}
-          >
-            <GitIcon />
           </button>
           <div className="rail-fill" />
         </nav>
@@ -724,12 +480,12 @@ export function App(): ReactElement {
               <FileTree
                 width={leftWidth}
                 entries={entries}
-              activePath={activePath}
-              onOpenFile={(path) => void openFile(path)}
-              onAddDir={() => void addDir()}
-              onAddFile={() => void addFile()}
-              onRemoveEntry={removeEntry}
-              onHide={() => setFilesVisible(false)}
+                activePath={activePath}
+                onOpenFile={(path) => void openFile(path)}
+                onAddDir={() => void addDir()}
+                onAddFile={() => void addFile()}
+                onRemoveEntry={removeEntry}
+                onHide={() => setFilesVisible(false)}
                 onRenamed={handleRenamed}
                 onError={setStatus}
               />
@@ -738,74 +494,63 @@ export function App(): ReactElement {
           ) : null}
 
           <section className="center">
-          <div className="tabbar">
-            <div className="tabs">
-              {tabs.map((tab) => (
-                <div
-                  key={tab.path}
-                  className={tab.path === activePath ? 'tab active' : 'tab'}
-                  title={tab.path}
-                  onClick={() => activate(tab.path)}
-                >
-                  <span className="tab-name">{baseName(tab.path)}</span>
-                  {tab.dirty ? <span className="tab-dot" /> : null}
-                  <button
-                    type="button"
-                    className="tab-close"
-                    aria-label="关闭标签页"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      void closeTab(tab.path)
-                    }}
+            <div className="tabbar">
+              <div className="tabs">
+                {tabs.map((tab) => (
+                  <div
+                    key={tab.path}
+                    className={tab.path === activePath ? 'tab active' : 'tab'}
+                    title={tab.path}
+                    onClick={() => activate(tab.path)}
                   >
-                    ×
-                  </button>
-                </div>
-              ))}
+                    <span className="tab-name">{baseName(tab.path)}</span>
+                    <button
+                      type="button"
+                      className="tab-close"
+                      aria-label="关闭标签页"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        closeTab(tab.path)
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div className="tab-actions">
+                <button
+                  type="button"
+                  className={tabListOpen ? 'icon-btn tab-list-toggle on' : 'icon-btn tab-list-toggle'}
+                  title="已打开的文件"
+                  aria-label="已打开的文件"
+                  onClick={(event) => void openTabList(event)}
+                >
+                  <ChevronDownIcon />
+                </button>
+                <button
+                  type="button"
+                  className={outlineVisible ? 'icon-btn outline-toggle on' : 'icon-btn outline-toggle'}
+                  title={outlineVisible ? '隐藏大纲' : '显示大纲'}
+                  aria-label={outlineVisible ? '隐藏大纲' : '显示大纲'}
+                  onClick={() => setOutlineVisible((current) => !current)}
+                >
+                  <OutlineIcon active={outlineVisible} />
+                </button>
+              </div>
             </div>
 
-            <div className="tab-actions">
-              {mode === 'edit' && activeTab ? (
-                <span className="cursor-pos" title="光标位置">
-                  {cursor.line}:{cursor.column}
-                </span>
-              ) : null}
-              <button
-                type="button"
-                className={tabListOpen ? 'icon-btn tab-list-toggle on' : 'icon-btn tab-list-toggle'}
-                title="已打开的文件"
-                aria-label="已打开的文件"
-                onClick={(event) => void openTabList(event)}
-              >
-                <ChevronDownIcon />
-              </button>
-              <button
-                type="button"
-                className={outlineVisible ? 'icon-btn outline-toggle on' : 'icon-btn outline-toggle'}
-                title={outlineVisible ? '隐藏大纲' : '显示大纲'}
-                aria-label={outlineVisible ? '隐藏大纲' : '显示大纲'}
-                onClick={() => setOutlineVisible((current) => !current)}
-              >
-                <OutlineIcon active={outlineVisible} />
-              </button>
-            </div>
-          </div>
-
-          <main className={activeTab && mode === 'edit' ? 'content edit' : 'content'}>
-            {activeTab ? (
-              <>
-                <div className={mode === 'edit' ? 'editor-pane' : 'editor-pane is-hidden'}>
-                  <Editor viewRef={viewRef} />
-                </div>
+            <main className="content">
+              {activeTab ? (
                 <div className="preview-pane">
                   <PreviewPane onBounds={handleBounds} />
                 </div>
-              </>
-            ) : (
-              <EmptyState onOpen={() => void openViaDialog()} />
-            )}
-          </main>
-        </section>
+              ) : (
+                <EmptyState onOpen={() => void openViaDialog()} />
+              )}
+            </main>
+          </section>
 
           {outlineVisible && activeTab ? (
             <>
@@ -815,7 +560,6 @@ export function App(): ReactElement {
           ) : null}
         </div>
       </div>
-
     </div>
   )
 }
