@@ -23,7 +23,12 @@ export function MenuBar({ groups }: MenuBarProps): ReactElement {
       const rect = element.getBoundingClientRect()
       openOverlayMenu(
         group.items,
-        { x: Math.round(rect.left), y: Math.round(rect.bottom + 6), width: 224 },
+        {
+          x: Math.round(rect.left),
+          y: Math.round(rect.bottom + 6),
+          width: 224,
+          trigger: { x: rect.left, y: rect.top, width: rect.width, height: rect.height }
+        },
         () => setOpenIndex(null)
       )
       setOpenIndex(index)

@@ -76,6 +76,51 @@ async function attach(webSocketDebuggerUrl) {
 const results = []
 const check = (name, pass, detail) => results.push([name, pass, detail])
 
+// 菜单现在"鼠标离开就自动收起"，脚本点菜单之前要先把真实光标停到触发按钮上
+const setCursorTo = (x, y) =>
+  new Promise((resolve) =>
+    execFile(
+      "powershell",
+      [
+        "-NoProfile",
+        "-Command",
+        `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Cursor]::Position = New-Object System.Drawing.Point(${Math.round(x)}, ${Math.round(y)})`
+      ],
+      () => resolve()
+    )
+  )
+
+const menubar = (label) => `[...document.querySelectorAll('.menubar-button')].find((b) => b.textContent.trim() === ${JSON.stringify(label)})`
+
+const parkOn = async (elementExpr) => {
+  const point = JSON.parse(
+    await shell.evaluate(
+      `(() => { const el = ${elementExpr}; if (!el) return "null"; const r = el.getBoundingClientRect(); return JSON.stringify({ x: window.screenX + r.left + r.width / 2, y: window.screenY + r.top + r.height / 2 }) })()`
+    )
+  )
+  if (!point) throw new Error("parkOn: 找不到元素")
+  await setCursorTo(point.x, point.y)
+  await sleep(150)
+}
+const parkOnMenu = (label) => parkOn(menubar(label))
+
+const readCursor = () =>
+  new Promise((resolve) =>
+    execFile(
+      "powershell",
+      [
+        "-NoProfile",
+        "-Command",
+        `Add-Type -AssemblyName System.Windows.Forms; "$([System.Windows.Forms.Cursor]::Position.X),$([System.Windows.Forms.Cursor]::Position.Y)"`
+      ],
+      (err, stdout) => {
+        if (err || !stdout) return resolve(null)
+        const [x, y] = String(stdout).trim().split(",").map(Number)
+        resolve(Number.isFinite(x) && Number.isFinite(y) ? { x, y } : null)
+      }
+    )
+  )
+
 // 菜单现在渲染在独立的弹层视图里，需要连过去操作
 async function withOverlay(fn) {
   const target = (await listTargets()).find((t) => t.url.includes('overlay.html'))
@@ -105,10 +150,12 @@ const overlayClick = (label) =>
 
 let shell
 let preview
+let cursorAtStart = null
 try {
   const targets = await listTargets()
   const mainTarget = targets.find((t) => t.type === 'page' && (t.url.startsWith('file://') || t.url.startsWith('http://localhost')))
   shell = await attach(mainTarget.webSocketDebuggerUrl)
+  cursorAtStart = await readCursor()
   await sleep(2600)
 
   const ui = JSON.parse(
@@ -134,6 +181,7 @@ try {
   const jarButtons = await shell.evaluate(`document.querySelectorAll('.jar-actions button').length`)
   check('星星罐标题有五个操作按钮', jarButtons === 5, `${jarButtons} 个`)
 
+  await parkOn(`document.querySelector('.jar-actions button')`)
   await shell.evaluate(`document.querySelector('.jar-actions button').click()`)
   await sleep(600)
   const addItems = JSON.parse((await overlayLabels()) ?? '[]')
@@ -144,6 +192,7 @@ try {
   await sleep(200)
 
   // 菜单悬停切换：打开「文件」后把鼠标移到「视图」上，内容应整体换掉
+  await parkOnMenu('文件')
   await shell.evaluate(`[...document.querySelectorAll('.menubar-button')].find((b) => b.textContent.trim() === '文件').click()`)
   await sleep(600)
   const fileMenu = JSON.parse((await overlayLabels()) ?? '[]')
@@ -157,16 +206,32 @@ try {
   )
 
   // 加号菜单的卡片必须贴着视图顶部，不能盖住加号按钮本身
+  await parkOnMenu('文件')
   await shell.evaluate(`[...document.querySelectorAll('.menubar-button')].find((b) => b.textContent.trim() === '文件').click()`)
   await sleep(300)
   await shell.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
   await sleep(300)
+  await parkOn(`document.querySelector('.jar-actions button')`)
   await shell.evaluate(`document.querySelector('.jar-actions button').click()`)
   await sleep(600)
   const cardTop = await withOverlay((overlay) => overlay.evaluate(`Math.round(document.getElementById('card').getBoundingClientRect().top)`))
   check('弹层不覆盖触发按钮', cardTop === 0, `卡片距视图顶部 ${cardTop}px`)
   await withOverlay((overlay) => overlay.evaluate(`window.overlayApi.close()`))
   await sleep(300)
+  // 鼠标离开「按钮 + 下拉框」后要自动收起
+  // 先把可能残留的菜单收掉，保证从这里开始是"干净"的状态
+  await shell.evaluate(`document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))`)
+  await sleep(400)
+  await parkOnMenu('文件')
+  await shell.evaluate(`${menubar('文件')}.click()`)
+  await sleep(500)
+  const openBeforeLeave = await shell.evaluate(`document.querySelectorAll('.menubar-button.open').length`)
+  const origin = JSON.parse(await shell.evaluate(`JSON.stringify({ x: window.screenX, y: window.screenY })`))
+  await setCursorTo(Math.max(0, origin.x - 90), Math.max(0, origin.y - 70))
+  await sleep(900)
+  const openAfterLeave = await shell.evaluate(`document.querySelectorAll('.menubar-button.open').length`)
+  check('鼠标离开按钮与下拉框后自动收起', openBeforeLeave === 1 && openAfterLeave === 0, `离开前 ${openBeforeLeave}，离开后 ${openAfterLeave}`)
+
   check(
     '顶栏与左侧图标栏同色、与文件树区分',
     ui.chromeBg === ui.railBg && ui.railBg !== ui.treeBg,
@@ -255,12 +320,14 @@ try {
   const scrollAfter = await preview.evaluate('window.scrollY')
   check('点目录跳到文档对应位置', scrollAfter > scrollBefore + 100, `scrollY ${scrollBefore} -> ${scrollAfter}`)
 
+  await parkOnMenu('视图')
   await shell.evaluate(`[...document.querySelectorAll('.menubar-button')].find((b) => b.textContent.trim() === '视图').click()`)
   await sleep(600)
   const menuVisible = await overlayLabels()
   await overlayClick('文件列表')
   await sleep(500)
   const hiddenByMenu = await shell.evaluate(`document.querySelectorAll('.panel-left').length`)
+  await parkOnMenu('视图')
   await shell.evaluate(`[...document.querySelectorAll('.menubar-button')].find((b) => b.textContent.trim() === '视图').click()`)
   await sleep(600)
   const checkedByMenu = await withOverlay((overlay) =>
@@ -355,6 +422,7 @@ try {
   fs.unlinkSync(probe)
   await sleep(600)
 
+  await parkOn(`document.querySelector('.tab-list-toggle')`)
   await shell.evaluate(`document.querySelector('.tab-list-toggle').click()`)
   await sleep(600)
   const tabListInfo = JSON.parse(
@@ -406,6 +474,7 @@ try {
     `文件条目 ${solo.fileRows.join(', ')}；全部 ${solo.allRows.join(', ')}`
   )
 } finally {
+  if (cursorAtStart) await setCursorTo(cursorAtStart.x, cursorAtStart.y)
   preview?.close()
   shell?.close()
   await stopApp(child)

@@ -12,12 +12,20 @@ export interface OverlayItem {
   secondary?: { id: string; label: string }
 }
 
+export interface OverlayAnchorRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export interface OverlayOpenPayload {
   items: OverlayItem[]
   x: number
   y: number
   width: number
-  minWidth?: number
+  /** 触发按钮的矩形：鼠标离开它和下拉框的并集时自动收起 */
+  anchor?: OverlayAnchorRect
 }
 
 export interface JarEntry {

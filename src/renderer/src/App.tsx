@@ -255,7 +255,16 @@ export function App(): ReactElement {
         }
       }))
 
-      openOverlayList(rows, { x: Math.round(x), y: Math.round(rect.bottom + 8), width }, () => setTabListOpen(false))
+      openOverlayList(
+        rows,
+        {
+          x: Math.round(x),
+          y: Math.round(rect.bottom + 8),
+          width,
+          trigger: { x: rect.left, y: rect.top, width: rect.width, height: rect.height }
+        },
+        () => setTabListOpen(false)
+      )
       setTabListOpen(true)
     },
     [activate, closeTab, tabListOpen]

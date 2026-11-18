@@ -328,7 +328,12 @@ export function FileTree(props: FileTreeProps): ReactElement {
           { type: 'item', label: '添加文件夹', onSelect: onAddDir },
           { type: 'item', label: '添加文件', onSelect: onAddFile }
         ],
-        { x: Math.round(rect.left), y: Math.round(rect.bottom + 6), width: 168 },
+        {
+          x: Math.round(rect.left),
+          y: Math.round(rect.bottom + 6),
+          width: 168,
+          trigger: { x: rect.left, y: rect.top, width: rect.width, height: rect.height }
+        },
         () => undefined
       )
     },

@@ -19,6 +19,8 @@ export interface OverlayAnchor {
   x: number
   y: number
   width: number
+  /** 触发按钮的矩形，用于"鼠标离开就收起" */
+  trigger?: { x: number; y: number; width: number; height: number }
 }
 
 let handlers = new Map<string, () => void>()
@@ -56,7 +58,7 @@ export function openOverlayMenu(entries: MenuEntry[], anchor: OverlayAnchor, onD
 
   handlers = nextHandlers
   dismissHandler = onDismiss
-  window.libra.openOverlay({ items, ...anchor })
+  window.libra.openOverlay({ items, x: anchor.x, y: anchor.y, width: anchor.width, anchor: anchor.trigger })
 }
 
 export interface OverlayListRow {
@@ -86,7 +88,7 @@ export function openOverlayList(rows: OverlayListRow[], anchor: OverlayAnchor, o
 
   handlers = nextHandlers
   dismissHandler = onDismiss
-  window.libra.openOverlay({ items, ...anchor })
+  window.libra.openOverlay({ items, x: anchor.x, y: anchor.y, width: anchor.width, anchor: anchor.trigger })
 }
 
 export function closeOverlayMenu(): void {
