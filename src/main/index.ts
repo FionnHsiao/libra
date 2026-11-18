@@ -45,8 +45,9 @@ function createWindow(): void {
   rendererReady = false
 
   const contentsId = win.webContents.id
-  createPreviewHost(win)
-  createOverlayHost(win)
+  const previewHost = createPreviewHost(win)
+  const overlayHost = createOverlayHost(win)
+  previewHost.onPointerDown(() => overlayHost.dismiss())
 
   win.on('closed', () => {
     disposePreviewHost(contentsId)

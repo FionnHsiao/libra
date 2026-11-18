@@ -81,6 +81,7 @@ export class OverlayHost {
 
   /** 弹层自己被关掉（点空白 / Esc）：通知主窗口复位状态 */
   dismiss(): void {
+    if (!this.isOpen()) return
     this.close()
     this.win.webContents.send(CH.overlayDismissed)
   }

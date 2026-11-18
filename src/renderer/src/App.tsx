@@ -264,6 +264,17 @@ export function App(): ReactElement {
   useEffect(() => installOverlayBridge(), [])
 
   useEffect(() => {
+    const handleDown = (event: MouseEvent): void => {
+      const target = event.target as HTMLElement | null
+      // 触发按钮自己负责开/关，不要在这里抢先关掉
+      if (target?.closest('.menubar, .jar-actions, .tab-list-toggle')) return
+      closeOverlayMenu()
+    }
+    document.addEventListener('mousedown', handleDown)
+    return () => document.removeEventListener('mousedown', handleDown)
+  }, [])
+
+  useEffect(() => {
     window.libra
       .getEntries()
       .then((list) => {

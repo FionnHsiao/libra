@@ -1,50 +1,68 @@
 import { execFile, spawn } from 'node:child_process'
-import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
 const PROJECT = 'E:/Libra/libra'
-const DIR = path.join(os.tmpdir(), 'libra-live')
-const FILE = path.join(DIR, 'live.html')
 const PROFILE = path.join(os.tmpdir(), 'libra-live-profile')
-const PORT = 9571
+const PORT = 9581
 const { default: electronPath } = await import('electron')
-
-fs.mkdirSync(DIR, { recursive: true })
-fs.writeFileSync(FILE, '<!doctype html><meta charset="utf-8"><h1>版本一</h1>', 'utf8')
-fs.mkdirSync(PROFILE, { recursive: true })
-fs.writeFileSync(path.join(PROFILE, 'settings.json'), JSON.stringify({ entries: [{ kind: 'dir', path: DIR }] }), 'utf8')
-
-const child = spawn(electronPath, ['.', FILE, '--remote-debugging-port=' + PORT, '--user-data-dir=' + PROFILE], { cwd: PROJECT, stdio: 'ignore' })
+const child = spawn(electronPath, ['.', '--remote-debugging-port=' + PORT, '--user-data-dir=' + PROFILE], { cwd: PROJECT, stdio: 'ignore' })
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const list = async () => (await fetch('http://127.0.0.1:' + PORT + '/json/list')).json()
 
-async function previewText() {
-  const list = await (await fetch('http://127.0.0.1:' + PORT + '/json/list')).json()
-  const t = list.find((x) => x.url.startsWith('libra-file://'))
-  if (!t) return '(no preview)'
-  const ws = new WebSocket(t.webSocketDebuggerUrl)
+async function connect(url) {
+  const ws = new WebSocket(url)
   await new Promise((r, j) => { ws.onopen = r; ws.onerror = j })
-  const value = await new Promise((resolve) => {
+  let seq = 0
+  const call = (method, params = {}) => new Promise((resolve, reject) => {
+    const id = (seq += 1)
     const h = (ev) => {
       const m = JSON.parse(ev.data)
-      if (m.id !== 1) return
+      if (m.id !== id) return
       ws.removeEventListener('message', h)
-      resolve(m.result?.result?.value)
+      if (m.error) return reject(new Error(JSON.stringify(m.error)))
+      resolve(m.result)
     }
     ws.addEventListener('message', h)
-    ws.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression: 'document.body.innerText.trim()', returnByValue: true } }))
+    ws.send(JSON.stringify({ id, method, params }))
   })
-  ws.close()
-  return value
+  return {
+    call,
+    evaluate: async (e) => (await call('Runtime.evaluate', { expression: e, awaitPromise: true, returnByValue: true })).result?.value,
+    close: () => ws.close()
+  }
 }
 
 try {
-  await sleep(3500)
-  console.log('before:', await previewText())
+  await sleep(3200)
+  const shell = await connect((await list()).find((t) => t.url.endsWith('index.html')).webSocketDebuggerUrl)
 
-  fs.writeFileSync(FILE, '<!doctype html><meta charset="utf-8"><h1>版本二</h1>', 'utf8')
-  await sleep(2000)
-  console.log('after :', await previewText())
+  await shell.evaluate('(() => { const rows = [...document.querySelectorAll(".panel-left .tree-row")]; const f = rows.find((el) => !el.querySelector(".chev")); if (f) f.click() })()')
+  await sleep(1600)
+
+  // 打开视图菜单
+  await shell.evaluate('[...document.querySelectorAll(".menubar-button")].find((b) => b.textContent.trim() === "视图").click()')
+  await sleep(700)
+  const openBefore = await shell.evaluate('document.querySelectorAll(".menubar-button.open").length')
+  console.log('menu open:', openBefore)
+
+  // 在预览页里点一下（原生视图，事件不会到主窗口 DOM）
+  const previewTarget = (await list()).find((t) => t.url.startsWith('libra-file://'))
+  const pv = await connect(previewTarget.webSocketDebuggerUrl)
+  await pv.call('Input.dispatchMouseEvent', { type: 'mousePressed', x: 120, y: 120, button: 'left', clickCount: 1 })
+  await pv.call('Input.dispatchMouseEvent', { type: 'mouseReleased', x: 120, y: 120, button: 'left', clickCount: 1 })
+  pv.close()
+  await sleep(700)
+  console.log('after clicking preview, menu open:', await shell.evaluate('document.querySelectorAll(".menubar-button.open").length'))
+
+  // 再开一次，点文件树区域
+  await shell.evaluate('[...document.querySelectorAll(".menubar-button")].find((b) => b.textContent.trim() === "视图").click()')
+  await sleep(700)
+  await shell.evaluate('document.querySelector(".panel-left").dispatchEvent(new MouseEvent("mousedown", { bubbles: true }))')
+  await sleep(700)
+  console.log('after clicking tree, menu open:', await shell.evaluate('document.querySelectorAll(".menubar-button.open").length'))
+
+  shell.close()
 } finally {
   await new Promise((resolve) => {
     if (!child.pid) { resolve(); return }

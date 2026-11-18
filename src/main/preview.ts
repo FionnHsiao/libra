@@ -101,6 +101,13 @@ export class PreviewHost {
     this.view.webContents.reload()
   }
 
+  /** 预览页里的鼠标按下事件（原生视图不会把事件传给主窗口的 DOM） */
+  onPointerDown(callback: () => void): void {
+    this.view.webContents.on('input-event', (_event, inputEvent) => {
+      if (inputEvent.type === 'mouseDown') callback()
+    })
+  }
+
   scrollTo(index: number): void {
     const safe = Math.max(0, Math.min(99999, Math.floor(index)))
     void this.view.webContents
