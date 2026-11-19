@@ -609,8 +609,12 @@ export function App(): ReactElement {
 
   const titleText = status ?? (activePath ? baseName(activePath) : 'Libra')
 
+  const shellClass = ['app', immersive ? 'immersive' : '', filesVisible ? '' : 'files-hidden']
+    .filter(Boolean)
+    .join(' ')
+
   return (
-    <div className={immersive ? 'app immersive' : 'app'}>
+    <div className={shellClass}>
       <header className="titlebar">
         <div className="titlebar-left">
           <button

@@ -193,6 +193,15 @@ body.platform-darwin .titlebar-fill {
   flex: 1;
 }
 
+/* 目录栏收起来时，左边那条图标栏也一起收掉，正文占满剩下的宽度 */
+.app.files-hidden .rail {
+  display: none;
+}
+
+.app.files-hidden .workspace {
+  margin-left: 10px;
+}
+
 /* ---- 浮动卡片 ---- */
 
 .workspace {

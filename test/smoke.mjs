@@ -264,14 +264,31 @@ try {
   check('大纲默认隐藏', ui.outlinePanels === 0, `${ui.outlinePanels} 个面板`)
   check('左侧图标栏只保留主页按钮', ui.railButtons === 1, `${ui.railButtons} 个按钮`)
 
-  // 隐藏文件列表后点主页，应重新显示
+  // 隐藏文件列表时，左侧图标栏也一起收起，正文占满空出来的宽度
+  const centerBefore = await shell.evaluate(`Math.round(document.querySelector('.center').getBoundingClientRect().width)`)
   await shell.evaluate(`document.querySelector('.titlebar-toggle').click()`)
-  await sleep(400)
-  const hiddenByHeader = await shell.evaluate(`document.querySelectorAll('.panel-left').length`)
-  await shell.evaluate(`document.querySelector('.rail-btn').click()`)
-  await sleep(400)
-  const shownByHome = await shell.evaluate(`document.querySelectorAll('.panel-left').length`)
-  check('隐藏后用主页按钮恢复文件列表', hiddenByHeader === 0 && shownByHome === 1, `${hiddenByHeader} -> ${shownByHome}`)
+  await sleep(500)
+  const collapsed = JSON.parse(
+    await shell.evaluate(`JSON.stringify({
+      panels: document.querySelectorAll('.panel-left').length,
+      rail: getComputedStyle(document.querySelector('.rail')).display,
+      center: Math.round(document.querySelector('.center').getBoundingClientRect().width)
+    })`)
+  )
+  await shell.evaluate(`document.querySelector('.titlebar-toggle').click()`)
+  await sleep(500)
+  const expanded = JSON.parse(
+    await shell.evaluate(`JSON.stringify({
+      panels: document.querySelectorAll('.panel-left').length,
+      rail: getComputedStyle(document.querySelector('.rail')).display
+    })`)
+  )
+  check(
+    '隐藏目录栏时左侧图标栏一起收起',
+    collapsed.panels === 0 && collapsed.rail === 'none' && expanded.panels === 1 && expanded.rail !== 'none',
+    `面板 ${collapsed.panels} -> ${expanded.panels}，图标栏 ${collapsed.rail} -> ${expanded.rail}`
+  )
+  check('收起目录栏后正文变宽', collapsed.center - centerBefore >= 48, `${centerBefore} -> ${collapsed.center}`)
 
   const widthBefore = await shell.evaluate(`Math.round(document.querySelector('.panel-left').getBoundingClientRect().width)`)
   await shell.evaluate(`(() => {
