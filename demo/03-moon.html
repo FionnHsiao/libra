@@ -1,0 +1,479 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>月相 · Libra 演示</title>
+<style>
+  :root {
+    --paper: #f6f1e6;
+    --paper-2: #efe8d8;
+    --ink: #2b2721;
+    --soft: #6b6459;
+    --line: rgba(43, 39, 33, 0.12);
+    --ink-blue: #3b4568;
+    --ochre: #a8763f;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Songti SC", "SimSun", Georgia, "Microsoft YaHei", serif;
+    -webkit-font-smoothing: antialiased;
+    /* 纸的纹理：极淡的斜向条纹，避免大片纯色发闷 */
+    background-image:
+      repeating-linear-gradient(92deg, rgba(120, 105, 80, 0.028) 0 1px, transparent 1px 4px),
+      radial-gradient(1200px 700px at 80% -10%, rgba(168, 118, 63, 0.10), transparent 60%);
+  }
+
+  /* 左侧阅读进度线 */
+  .rail {
+    position: fixed;
+    left: 26px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--line);
+    z-index: 5;
+  }
+
+  .rail i {
+    position: absolute;
+    left: -2px;
+    top: 0;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--ink-blue);
+    box-shadow: 0 0 0 3px rgba(59, 69, 104, 0.10);
+    transition: top 0.12s linear;
+  }
+
+  .wrap {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 40px 0 72px;
+  }
+
+  /* ---------- 封面 ---------- */
+
+  .cover {
+    min-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+  }
+
+  .kicker {
+    margin: 0 0 26px;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.36em;
+    text-transform: uppercase;
+    color: var(--ochre);
+  }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(44px, 7.2vw, 92px);
+    font-weight: 400;
+    line-height: 1.24;
+    letter-spacing: 0.01em;
+  }
+
+  h1 small {
+    display: block;
+    margin-top: 18px;
+    font-size: 15px;
+    letter-spacing: 0.24em;
+    color: var(--soft);
+  }
+
+  .lede {
+    margin: 34px 0 0;
+    max-width: 520px;
+    font-size: 16px;
+    line-height: 2.2;
+    color: #4a443b;
+  }
+
+  .cover-rule {
+    margin-top: 46px;
+    width: 72px;
+    height: 1px;
+    background: var(--ink);
+    opacity: 0.35;
+  }
+
+  /* ---------- 正文 + 月亮 ---------- */
+
+  .body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 72px;
+    padding-bottom: 160px;
+    align-items: start;
+  }
+
+  .text-col { min-width: 0; }
+
+  .moon-col {
+    position: relative;
+  }
+
+  .moon-stick {
+    position: sticky;
+    top: 12vh;
+    text-align: center;
+  }
+
+  #moon { width: 100%; max-width: 300px; height: auto; display: block; margin: 0 auto; }
+
+  .moon-meta {
+    margin-top: 18px;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    color: var(--soft);
+    text-transform: uppercase;
+  }
+
+  .moon-meta strong {
+    display: block;
+    margin-top: 8px;
+    font-family: "Songti SC", "SimSun", Georgia, serif;
+    font-size: 17px;
+    letter-spacing: 0.16em;
+    font-weight: 400;
+    color: var(--ink);
+  }
+
+  section {
+    padding: 26px 0 8px;
+    margin-bottom: 68px;
+    border-top: 1px solid var(--line);
+  }
+
+  h2 {
+    margin: 0 0 20px;
+    font-size: 27px;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+  }
+
+  h2 span {
+    display: inline-block;
+    margin-right: 14px;
+    font-family: "Segoe UI", sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    color: var(--ochre);
+    vertical-align: 8px;
+  }
+
+  p {
+    margin: 0 0 18px;
+    font-size: 16.5px;
+    line-height: 2.15;
+    color: #3b362e;
+  }
+
+  p.first::first-letter {
+    float: left;
+    margin: 6px 10px 0 0;
+    font-size: 54px;
+    line-height: 0.9;
+    color: var(--ink-blue);
+  }
+
+  blockquote {
+    margin: 26px 0;
+    padding: 4px 0 4px 22px;
+    border-left: 2px solid rgba(59, 69, 104, 0.35);
+    font-size: 16px;
+    line-height: 2.1;
+    color: #4d556e;
+  }
+
+  /* 小月相：解释四种状态的示意图 */
+  .phases {
+    display: flex;
+    gap: 26px;
+    margin: 30px 0 10px;
+    flex-wrap: wrap;
+  }
+
+  .phase {
+    text-align: center;
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--soft);
+  }
+
+  .phase svg { display: block; margin: 0 auto 8px; }
+
+  /* 滚动出现 */
+  .reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity 0.9s ease, transform 0.9s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .reveal.in { opacity: 1; transform: none; }
+
+  .end {
+    margin-top: 40px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-size: 12.5px;
+    line-height: 2;
+    color: var(--soft);
+  }
+
+  kbd {
+    font: 11px/1 ui-monospace, Consolas, monospace;
+    padding: 3px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.6);
+  }
+</style>
+</head>
+<body>
+<div class="rail"><i id="railDot"></i></div>
+
+<div class="wrap">
+  <div class="body">
+    <div class="text-col">
+  <header class="cover">
+    <p class="kicker">Libra · Demo 03</p>
+    <h1>一轮月亮的<br />三十天<small>SCROLL · 月相与潮汐</small></h1>
+    <p class="lede">
+      这一页是给长文阅读准备的：纸的底色、宋体、行距很松，
+      右边那轮月亮会跟着你往下滚，一点点变圆，再一点点缺回去。
+    </p>
+    <div class="cover-rule"></div>
+  </header>
+
+      <section class="reveal">
+        <h2><span>I</span>新月</h2>
+        <p class="first">
+          月亮回到太阳和地球之间，被照亮的那一面背着我们。
+          所以它此刻不存在——至少在我们的视线里不存在。
+        </p>
+        <p>
+          古人把这几天叫作「朔」。历法从这里起算，因为看不见，
+          反而最适合当作一个干净的起点：账本翻页，事情重新开始计数。
+        </p>
+      </section>
+
+      <section class="reveal">
+        <h2><span>II</span>上弦</h2>
+        <p>
+          第七天前后，月亮走到太阳东侧九十度。傍晚抬头，
+          它悬在正南，右半边亮着，像被谁整齐地切了一刀。
+        </p>
+        <blockquote>
+          潮水在这几天涨落最大。海边的渔民不看日历，看月亮。
+        </blockquote>
+        <p>
+          光在一点点变多，但还没到顶点。这种「正在变好」的状态，
+          往往比圆满本身更让人安心。
+        </p>
+      </section>
+
+      <section class="reveal">
+        <h2><span>III</span>满月</h2>
+        <p>
+          十五天，地球正好夹在中间。整面朝向我们的月亮都被照亮，
+          它从东边升起时，地平线附近的空气会把它压得又大又红。
+        </p>
+        <div class="phases" id="phases"></div>
+        <p>
+          满月其实只持续一个瞬间，前后两三天看上去都差不多圆。
+          我们说的「十五的月亮十六圆」，说的就是这种误差。
+        </p>
+      </section>
+
+      <section class="reveal">
+        <h2><span>IV</span>下弦</h2>
+        <p>
+          过了满月，亮的部分从右边退到左边。到第二十二天前后，
+          左半边亮起来，凌晨才会升起——早起的人才能看见。
+        </p>
+        <p>
+          然后它继续瘦下去，回到新月。三十天一个循环，
+          不慌不忙，也不需要谁提醒。
+        </p>
+      </section>
+
+      <div class="end reveal">
+        演示提示：这一页够长，适合展示右侧大纲跳转、<kbd>Ctrl</kbd>+<kbd>F</kbd> 查找，
+        以及切走页签再切回来时滚动位置被记住。按 <kbd>F11</kbd> 可以只看这轮月亮。
+      </div>
+    </div>
+
+    <div class="moon-col">
+      <div class="moon-stick">
+        <svg id="moon" viewBox="0 0 320 320" aria-label="随滚动变化的月相">
+          <defs>
+            <radialGradient id="surface" cx="38%" cy="34%" r="72%">
+              <stop offset="0%" stop-color="#fffdf4" />
+              <stop offset="62%" stop-color="#f2e6c8" />
+              <stop offset="100%" stop-color="#ddcaa2" />
+            </radialGradient>
+            <clipPath id="disc">
+              <circle cx="160" cy="160" r="118" />
+            </clipPath>
+            <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="14" result="b" />
+              <feMerge>
+                <feMergeNode in="b" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          <!-- 月光晕 -->
+          <circle cx="160" cy="160" r="130" fill="rgba(246, 233, 200, 0.55)" filter="url(#glow)" />
+
+          <!-- 月面 -->
+          <circle cx="160" cy="160" r="118" fill="url(#surface)" />
+
+          <!-- 环形山：几块很淡的暗斑 -->
+          <g clip-path="url(#disc)" opacity="0.5">
+            <circle cx="132" cy="126" r="20" fill="#cdb894" opacity="0.55" />
+            <circle cx="186" cy="150" r="13" fill="#cdb894" opacity="0.45" />
+            <circle cx="150" cy="204" r="26" fill="#cdb894" opacity="0.35" />
+            <circle cx="204" cy="220" r="9" fill="#cdb894" opacity="0.5" />
+            <circle cx="112" cy="172" r="8" fill="#cdb894" opacity="0.4" />
+          </g>
+
+          <!-- 影子：一个同尺寸的圆，向两边平移来做出盈亏 -->
+          <g clip-path="url(#disc)">
+            <circle id="shadow" cx="160" cy="160" r="118" fill="#2a2721" opacity="0.9" />
+          </g>
+
+          <circle cx="160" cy="160" r="118" fill="none" stroke="rgba(120, 100, 70, 0.25)" />
+        </svg>
+        <p class="moon-meta">当前月相<strong id="phaseName">新月</strong></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var R = 118;
+    var cx = 160;
+    var shadow = document.getElementById('shadow');
+    var name = document.getElementById('phaseName');
+    var dot = document.getElementById('railDot');
+
+    var NAMES = [
+      '新月', '娥眉月', '上弦', '盈凸',
+      '满月', '亏凸', '下弦', '残月'
+    ];
+
+    // 四种固定月相的小示意图：dx 决定缺口位置
+    var PHASES = [
+      { label: '新月', dx: 0 },
+      { label: '上弦', dx: -R },
+      { label: '满月', dx: -2 * R },
+      { label: '下弦', dx: R }
+    ];
+
+    var holder = document.getElementById('phases');
+    PHASES.forEach(function (p) {
+      var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('width', '54');
+      svg.setAttribute('height', '54');
+      svg.setAttribute('viewBox', '0 0 60 60');
+      var wp = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      var clip = document.createElementNS('http://www.w3.org/2000/svg', 'clipPath');
+      var cid = 'c' + p.label;
+      clip.setAttribute('id', cid);
+      var cc = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      cc.setAttribute('cx', '30');
+      cc.setAttribute('cy', '30');
+      cc.setAttribute('r', '24');
+      clip.appendChild(cc);
+      wp.appendChild(clip);
+      svg.appendChild(wp);
+      var base = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      base.setAttribute('cx', '30');
+      base.setAttribute('cy', '30');
+      base.setAttribute('r', '24');
+      base.setAttribute('fill', '#f0e3c4');
+      svg.appendChild(base);
+      var sh = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      sh.setAttribute('cx', String(30 + (p.dx / R) * 24));
+      sh.setAttribute('cy', '30');
+      sh.setAttribute('r', '24');
+      sh.setAttribute('fill', '#2a2721');
+      sh.setAttribute('opacity', '0.9');
+      sh.setAttribute('clip-path', 'url(#' + cid + ')');
+      svg.appendChild(sh);
+      var label = document.createElement('div');
+      label.className = 'phase';
+      label.textContent = p.label;
+      var box = document.createElement('div');
+      box.appendChild(svg);
+      box.appendChild(label);
+      holder.appendChild(box);
+    });
+
+    var max = 1;
+    var labelEl = name;
+
+    function measure() {
+      max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+    }
+
+    function update() {
+      var y = window.scrollY;
+      var p = Math.min(1, Math.max(0, y / max));
+
+      // 影子从「一弯细月」涨到「满」，再一路亏回去，收尾回到新月
+      var t = 0.12 + 0.88 * p;
+      var swing = Math.sin(t * Math.PI);
+      var dx = -2 * R * swing;                  // 负值：右边先亮（上弦方向）
+      shadow.setAttribute('cx', String(cx + dx));
+
+      var waxing = t < 0.5;
+      var label = '新月';
+      if (swing < 0.1) label = '新月';
+      else if (Math.abs(swing - 0.5) < 0.055) label = waxing ? '上弦' : '下弦';
+      else if (swing < 0.5) label = waxing ? '娥眉月' : '残月';
+      else if (swing < 0.94) label = waxing ? '盈凸月' : '亏凸月';
+      else label = '满月';
+      labelEl.textContent = label;
+
+      dot.style.top = (p * 100).toFixed(2) + '%';
+    }
+
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', function () { measure(); update(); });
+
+    // 段落滚进视口时淡入
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) entry.target.classList.add('in');
+      });
+    }, { rootMargin: '-12% 0px -12% 0px' });
+
+    document.querySelectorAll('.reveal').forEach(function (el) { observer.observe(el); });
+
+    measure();
+    update();
+    window.__ready = 'moon';
+  })();
+</script>
+</body>
+</html>

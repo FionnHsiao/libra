@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>黄道十二宫 · Libra 演示</title>
+<style>
+  :root {
+    --bg: #0a0912;
+    --panel: rgba(255, 255, 255, 0.035);
+    --ink: #efe9f8;
+    --muted: #918aa8;
+    --gold: #e2c07c;
+    --violet: #b49bff;
+    --line: rgba(255, 255, 255, 0.09);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+
+  body {
+    margin: 0;
+    background:
+      radial-gradient(900px 620px at 18% 8%, rgba(110, 78, 200, 0.30), transparent 64%),
+      radial-gradient(760px 520px at 86% 82%, rgba(50, 120, 170, 0.20), transparent 62%),
+      var(--bg);
+    color: var(--ink);
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    overflow: hidden;
+  }
+
+  .layout {
+    height: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 348px;
+  }
+
+  /* ---------- 左：轮盘 ---------- */
+
+  .stage {
+    position: relative;
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    padding: 22px;
+  }
+
+  .stage::after {
+    /* 轮盘底下的一层柔光，让金色不显得平 */
+    content: "";
+    position: absolute;
+    width: min(72vh, 76vw);
+    height: min(72vh, 76vw);
+    border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(226, 192, 124, 0.14), transparent 72%);
+    pointer-events: none;
+  }
+
+  #wheel {
+    width: min(100%, 76vh, 640px);
+    height: auto;
+    aspect-ratio: 1 / 1;
+    position: relative;
+    z-index: 1;
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  #wheel.dragging { cursor: grabbing; }
+
+  .ring-outer { fill: none; stroke: rgba(226, 192, 124, 0.35); stroke-width: 1; }
+  .ring-inner { fill: none; stroke: rgba(255, 255, 255, 0.10); stroke-width: 1; }
+  .tick { stroke: rgba(226, 192, 124, 0.35); stroke-width: 1; }
+  .tick-major { stroke: rgba(226, 192, 124, 0.7); stroke-width: 1.4; }
+
+  .sector {
+    fill: transparent;
+    transition: fill 0.35s ease;
+  }
+
+  .sector.alt { fill: rgba(255, 255, 255, 0.022); }
+  .sector.hot { fill: rgba(180, 155, 255, 0.16); }
+
+  .glyph {
+    font-size: 30px;
+    fill: #f4ecdc;
+    font-family: "Segoe UI Symbol", "Segoe UI", serif;
+    text-anchor: middle;
+    dominant-baseline: central;
+    pointer-events: none;
+  }
+
+  .glyph-name {
+    font-size: 12.5px;
+    letter-spacing: 0.16em;
+    fill: rgba(226, 192, 124, 0.85);
+    text-anchor: middle;
+    pointer-events: none;
+    font-family: "Songti SC", "SimSun", Georgia, serif;
+  }
+
+  .orbit { fill: none; stroke: rgba(180, 155, 255, 0.30); stroke-width: 1; stroke-dasharray: 2 6; }
+  .orbit.spin-a { animation: spin 52s linear infinite; transform-box: view-box; transform-origin: 360px 360px; }
+  .orbit.spin-b { animation: spin 34s linear infinite reverse; transform-box: view-box; transform-origin: 360px 360px; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .core-text {
+    font-family: Georgia, "Songti SC", serif;
+    font-size: 13px;
+    letter-spacing: 0.5em;
+    fill: rgba(255, 255, 255, 0.75);
+    text-anchor: middle;
+  }
+
+  .core-mark { fill: rgba(226, 192, 124, 0.9); }
+
+  /* ---------- 右：词条 ---------- */
+
+  aside {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 46px 34px 34px;
+    border-left: 1px solid var(--line);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.012));
+    backdrop-filter: blur(6px);
+    overflow-y: auto;
+  }
+
+  .kicker {
+    margin: 0;
+    font-size: 10.5px;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+
+  h1 {
+    margin: -4px 0 0;
+    font-family: Georgia, "Songti SC", serif;
+    font-weight: 400;
+    font-size: 34px;
+    letter-spacing: 0.08em;
+  }
+
+  .hint {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.9;
+    color: var(--muted);
+  }
+
+  .list {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+    margin-top: 4px;
+  }
+
+  .list button {
+    font: inherit;
+    font-size: 12px;
+    padding: 9px 0;
+    color: #cfc7e2;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+  }
+
+  .list button:hover { background: rgba(255, 255, 255, 0.09); color: #fff; }
+
+  .list button.on {
+    background: rgba(180, 155, 255, 0.16);
+    border-color: rgba(180, 155, 255, 0.45);
+    color: #fff;
+  }
+
+  .detail {
+    margin-top: 6px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    min-height: 250px;
+  }
+
+  .detail .meta {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 14px 0 16px;
+  }
+
+  .chip {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(226, 192, 124, 0.32);
+    color: var(--gold);
+  }
+
+  .detail h2 {
+    margin: 0;
+    font-family: Georgia, "Songti SC", serif;
+    font-weight: 400;
+    font-size: 27px;
+    letter-spacing: 0.05em;
+  }
+
+  .detail h2 em {
+    font-style: normal;
+    font-size: 15px;
+    color: var(--muted);
+    margin-left: 10px;
+    letter-spacing: 0.18em;
+  }
+
+  .detail p {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 2.05;
+    color: #b3abc6;
+  }
+
+  .fade { animation: fade 0.45s ease; }
+
+  @keyframes fade {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <div class="stage">
+    <svg id="wheel" viewBox="0 0 720 720" role="img" aria-label="可拖动的黄道十二宫星盘">
+      <g id="rotor">
+        <circle class="ring-outer" cx="360" cy="360" r="322" />
+        <circle class="ring-inner" cx="360" cy="360" r="188" />
+        <g id="ticks"></g>
+        <g id="sectors"></g>
+        <g id="glyphs"></g>
+      </g>
+      <circle class="orbit spin-a" cx="360" cy="360" r="150" />
+      <circle class="orbit spin-b" cx="360" cy="360" r="120" />
+      <g id="core">
+        <text class="core-text" x="360" y="356">L I B R A</text>
+        <text class="core-text" x="360" y="382" style="font-size:10px; letter-spacing:0.3em; fill:rgba(226,192,124,0.8)">星 盘</text>
+      </g>
+      <path class="core-mark" d="M360 196 l7 12 -7 12 -7 -12 z" />
+    </svg>
+  </div>
+
+  <aside>
+    <p class="kicker">Libra · Demo 02</p>
+    <h1>黄道十二宫</h1>
+    <p class="hint">拖动转盘，松手会吸附到最近的宫位；也可以点下面的名字直接转过去。</p>
+
+    <div class="list" id="list"></div>
+
+    <div class="detail" id="detail"></div>
+  </aside>
+</div>
+
+<script>
+  (function () {
+    var SIGNS = [
+      { name: '白羊', en: 'Aries', glyph: '\u2648', date: '03.21 – 04.19', element: '火', ruler: '火星', text: '由原点出发的那一步。不等计划完整，先动起来，再在动作里修正方向。' },
+      { name: '金牛', en: 'Taurus', glyph: '\u2649', date: '04.20 – 05.20', element: '土', ruler: '金星', text: '把抽象的喜欢落到手感上：一顿饭、一件器物、一段可以反复回到的安稳。' },
+      { name: '双子', en: 'Gemini', glyph: '\u264A', date: '05.21 – 06.21', element: '风', ruler: '水星', text: '同时握住两条线索，用提问代替结论。好奇心是它唯一稳定的地方。' },
+      { name: '巨蟹', en: 'Cancer', glyph: '\u264B', date: '06.22 – 07.22', element: '水', ruler: '月亮', text: '记得所有温度。把家当成堡垒，也当成需要不断修补的旧物。' },
+      { name: '狮子', en: 'Leo', glyph: '\u264C', date: '07.23 – 08.22', element: '火', ruler: '太阳', text: '愿意被看见，也愿意为此承担光亮的代价。表演是它认真生活的方式。' },
+      { name: '处女', en: 'Virgo', glyph: '\u264D', date: '08.23 – 09.22', element: '土', ruler: '水星', text: '在细节里安放秩序。不是挑剔，是舍不得让事情差一点点。' },
+      { name: '天秤', en: 'Libra', glyph: '\u264E', date: '09.23 – 10.23', element: '风', ruler: '金星', text: '总在两端之间走动，为了让画面好看，也为了让每个人都被算进来。' },
+      { name: '天蝎', en: 'Scorpio', glyph: '\u264F', date: '10.24 – 11.22', element: '水', ruler: '冥王星', text: '不满足于表面，愿意为一件事沉到底。沉默里藏着它全部的注意力。' },
+      { name: '射手', en: 'Sagittarius', glyph: '\u2650', date: '11.23 – 12.21', element: '火', ruler: '木星', text: '把地图折起来，先出门。远方不是目的地，是一种必须保持的视野。' },
+      { name: '摩羯', en: 'Capricorn', glyph: '\u2651', date: '12.22 – 01.19', element: '土', ruler: '土星', text: '相信时间。把漫长当成材料，一层一层砌出可以站住的东西。' },
+      { name: '水瓶', en: 'Aquarius', glyph: '\u2652', date: '01.20 – 02.18', element: '风', ruler: '天王星', text: '站在局外看局内。它的疏离感，往往来自对未来过分的兴趣。' },
+      { name: '双鱼', en: 'Pisces', glyph: '\u2653', date: '02.19 – 03.20', element: '水', ruler: '海王星', text: '边界很薄，容易听见别人的情绪。梦境对它而言是另一种现实。' }
+    ];
+
+    var rotor = document.getElementById('rotor');
+    var wheel = document.getElementById('wheel');
+    var listEl = document.getElementById('list');
+    var detailEl = document.getElementById('detail');
+    var sectorsEl = document.getElementById('sectors');
+    var glyphsEl = document.getElementById('glyphs');
+    var ticksEl = document.getElementById('ticks');
+
+    function pol(r, deg) {
+      var a = (deg * Math.PI) / 180;
+      return [360 + Math.cos(a) * r, 360 + Math.sin(a) * r];
+    }
+
+    // 环形扇区：外弧 + 内弧拼一个「甜甜圈切片」
+    function sectorPath(i) {
+      var a0 = -90 + i * 30 - 15;
+      var a1 = -90 + i * 30 + 15;
+      var R = 300;
+      var r = 190;
+      var p0 = pol(R, a0);
+      var p1 = pol(R, a1);
+      var p2 = pol(r, a1);
+      var p3 = pol(r, a0);
+      return 'M' + p0[0] + ' ' + p0[1] +
+        ' A' + R + ' ' + R + ' 0 0 1 ' + p1[0] + ' ' + p1[1] +
+        ' L' + p2[0] + ' ' + p2[1] +
+        ' A' + r + ' ' + r + ' 0 0 0 ' + p3[0] + ' ' + p3[1] + ' Z';
+    }
+
+    var sectorNodes = [];
+    // 轮盘转，字不跟着转：每个字都在自己位置上反向旋转，永远正着
+    var uprightText = [];
+
+    SIGNS.forEach(function (sign, i) {
+      var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', sectorPath(i));
+      path.setAttribute('class', 'sector' + (i % 2 ? ' alt' : ''));
+      sectorsEl.appendChild(path);
+      sectorNodes.push(path);
+
+      var g1 = pol(252, -90 + i * 30);
+      var glyph = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      glyph.setAttribute('x', g1[0]);
+      glyph.setAttribute('y', g1[1]);
+      glyph.setAttribute('class', 'glyph');
+      glyph.textContent = sign.glyph;
+      glyphsEl.appendChild(glyph);
+      uprightText.push({ el: glyph, x: g1[0], y: g1[1] });
+
+      var g2 = pol(210, -90 + i * 30);
+      var name = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      name.setAttribute('x', g2[0]);
+      name.setAttribute('y', g2[1]);
+      name.setAttribute('class', 'glyph-name');
+      name.textContent = sign.name;
+      glyphsEl.appendChild(name);
+      uprightText.push({ el: name, x: g2[0], y: g2[1] });
+
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = sign.name;
+      btn.addEventListener('click', function () { goTo(i); });
+      listEl.appendChild(btn);
+      sign.button = btn;
+    });
+
+    // 外圈刻度：72 根，每 30 度一根长的
+    for (var t = 0; t < 72; t += 1) {
+      var major = t % 6 === 0;
+      var a = pol(major ? 306 : 310, -90 + t * 5);
+      var b = pol(320, -90 + t * 5);
+      var line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', a[0].toFixed(2));
+      line.setAttribute('y1', a[1].toFixed(2));
+      line.setAttribute('x2', b[0].toFixed(2));
+      line.setAttribute('y2', b[1].toFixed(2));
+      line.setAttribute('class', major ? 'tick tick-major' : 'tick');
+      ticksEl.appendChild(line);
+    }
+
+    var rotation = -180;    // 初始就把「天秤」转到正上方
+    var velocity = 0;
+    var dragging = false;
+    var lastAngle = 0;
+    var activeIndex = 6;    // 默认停在「天秤」
+    var animation = null;
+
+    function normalize(deg) {
+      return ((deg % 360) + 360) % 360;
+    }
+
+    // 当前转到正上方的是第几宫
+    function indexAtTop() {
+      var i = Math.round(normalize(-rotation) / 30) % 12;
+      return i;
+    }
+
+    function apply() {
+      rotor.setAttribute('transform', 'rotate(' + rotation.toFixed(3) + ' 360 360)');
+      var back = (-rotation).toFixed(2);
+      for (var i = 0; i < uprightText.length; i += 1) {
+        var u = uprightText[i];
+        u.el.setAttribute('transform', 'rotate(' + back + ' ' + u.x + ' ' + u.y + ')');
+      }
+    }
+
+    function paint(index) {
+      if (index === activeIndex) return;
+      activeIndex = index;
+      SIGNS.forEach(function (s, i) {
+        s.button.classList.toggle('on', i === index);
+        sectorNodes[i].classList.toggle('hot', i === index);
+      });
+      renderDetail(index);
+    }
+
+    function renderDetail(index) {
+      var s = SIGNS[index];
+      detailEl.innerHTML =
+        '<h2 class="fade">' + s.name + '<em>' + s.en + '</em></h2>' +
+        '<div class="meta fade"><span class="chip">' + s.date + '</span>' +
+        '<span class="chip">' + s.element + '象</span>' +
+        '<span class="chip">守护 · ' + s.ruler + '</span></div>' +
+        '<p class="fade">' + s.text + '</p>';
+    }
+
+    function animateTo(target, duration) {
+      if (animation) cancelAnimationFrame(animation);
+      var from = rotation;
+      var delta = normalize(target - rotation);
+      if (delta > 180) delta -= 360;
+      var start = performance.now();
+      var dur = duration || 520;
+      function step(now) {
+        var k = Math.min(1, (now - start) / dur);
+        var e = 1 - Math.pow(1 - k, 3);
+        rotation = from + delta * e;
+        apply();
+        if (k < 1) animation = requestAnimationFrame(step);
+        else { animation = null; paint(indexAtTop()); }
+      }
+      animation = requestAnimationFrame(step);
+    }
+
+    // 让第 i 宫转到正上方
+    function goTo(i) {
+      var target = -i * 30;
+      animateTo(target);
+      paint(i);
+    }
+
+    function pointAngle(e) {
+      var box = wheel.getBoundingClientRect();
+      var x = e.clientX - box.left - box.width / 2;
+      var y = e.clientY - box.top - box.height / 2;
+      return (Math.atan2(y, x) * 180) / Math.PI;
+    }
+
+    wheel.addEventListener('pointerdown', function (e) {
+      dragging = true;
+      velocity = 0;
+      if (animation) { cancelAnimationFrame(animation); animation = null; }
+      lastAngle = pointAngle(e);
+      wheel.classList.add('dragging');
+      wheel.setPointerCapture(e.pointerId);
+    });
+
+    wheel.addEventListener('pointermove', function (e) {
+      if (!dragging) return;
+      var a = pointAngle(e);
+      var d = a - lastAngle;
+      // 跨过 ±180 时修正，避免转盘突然反向跳
+      if (d > 180) d -= 360;
+      if (d < -180) d += 360;
+      rotation += d;
+      velocity = d;
+      lastAngle = a;
+      apply();
+      paint(indexAtTop());
+    });
+
+    function endDrag(e) {
+      if (!dragging) return;
+      dragging = false;
+      wheel.classList.remove('dragging');
+      try { wheel.releasePointerCapture(e.pointerId); } catch (err) { /* 指针已经释放 */ }
+      // 松手后吸附到最近的宫位：带一点惯性方向感
+      var projected = rotation + velocity * 6;
+      var snapped = Math.round(projected / 30) * 30;
+      animateTo(snapped, 620);
+    }
+
+    wheel.addEventListener('pointerup', endDrag);
+    wheel.addEventListener('pointercancel', endDrag);
+
+    apply();
+    paint(activeIndex);
+    renderDetail(activeIndex);
+    window.__ready = 'zodiac';
+  })();
+</script>
+</body>
+</html>

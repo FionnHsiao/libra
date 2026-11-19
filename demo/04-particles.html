@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>粒子星图 · Libra 演示</title>
+<style>
+  :root {
+    --ink: #f3f6ff;
+    --muted: #8e97ad;
+    --gold: #e3c583;
+    --ice: #9fe3ff;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    background: #05060b;
+    color: var(--ink);
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+  }
+
+  /* 底噪：两团冷光 + 一点暖光，避免纯黑发死 */
+  .bg {
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(620px 460px at 22% 18%, rgba(84, 96, 180, 0.30), transparent 68%),
+      radial-gradient(560px 420px at 82% 76%, rgba(34, 120, 150, 0.26), transparent 66%),
+      radial-gradient(420px 360px at 52% 108%, rgba(180, 130, 70, 0.18), transparent 70%),
+      #05060b;
+  }
+
+  #dots {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: crosshair;
+  }
+
+  header {
+    position: fixed;
+    top: 44px;
+    left: 52px;
+    z-index: 2;
+    pointer-events: none;
+  }
+
+  .kicker {
+    margin: 0 0 12px;
+    font-size: 10.5px;
+    letter-spacing: 0.36em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+
+  h1 {
+    margin: 0;
+    font-family: Georgia, "Songti SC", "SimSun", serif;
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: 0.24em;
+    color: rgba(243, 246, 255, 0.9);
+  }
+
+  .hint {
+    position: fixed;
+    left: 52px;
+    bottom: 44px;
+    z-index: 2;
+    max-width: 380px;
+    pointer-events: none;
+  }
+
+  h2 {
+    margin: 0 0 10px;
+    font-family: Georgia, "Songti SC", serif;
+    font-size: 17px;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    color: rgba(243, 246, 255, 0.86);
+  }
+
+  .hint p {
+    margin: 0;
+    font-size: 12.5px;
+    line-height: 1.95;
+    color: var(--muted);
+  }
+
+  .count {
+    position: fixed;
+    right: 52px;
+    bottom: 46px;
+    z-index: 2;
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    color: rgba(143, 152, 173, 0.75);
+    pointer-events: none;
+  }
+
+  .count b {
+    color: var(--ice);
+    font-weight: 500;
+  }
+</style>
+</head>
+<body>
+<div class="bg"></div>
+<canvas id="dots"></canvas>
+
+<header>
+  <p class="kicker">Libra · Demo 04</p>
+  <h1>粒子星图</h1>
+</header>
+
+<div class="hint">
+  <h2>把鼠标放上去，光点会散开</h2>
+  <p>点一下，整片星图炸开，再自己慢慢归位。散开的时候，粒子之间会亮起星座一样的连线。</p>
+</div>
+
+<p class="count">粒子 <b id="count">0</b></p>
+
+<script>
+  (function () {
+    var canvas = document.getElementById('dots');
+    var ctx = canvas.getContext('2d');
+    var countEl = document.getElementById('count');
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var W = 0;
+    var H = 0;
+
+    var particles = [];
+    var anchors = [];
+    var pointer = { x: -9999, y: -9999, active: false };
+    var burst = 0;
+
+    function resize() {
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = Math.floor(W * dpr);
+      canvas.height = Math.floor(H * dpr);
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      build();
+    }
+
+    // 把文字画到离屏画布上，再按固定间隔采样成粒子目标点
+    function build() {
+      var off = document.createElement('canvas');
+      off.width = W;
+      off.height = H;
+      var g = off.getContext('2d');
+      if (!g) return;
+
+      var word = 'LIBRA';
+      var size = Math.min(W * 0.30, H * 0.46);
+      g.font = '600 ' + size + 'px Georgia, "Songti SC", "SimSun", serif';
+      // 逐字收窄，直到整词能放进 72% 的宽度
+      var guard = 0;
+      while (g.measureText(word).width > W * 0.72 && guard < 40) {
+        size *= 0.94;
+        g.font = '600 ' + size + 'px Georgia, "Songti SC", "SimSun", serif';
+        guard += 1;
+      }
+
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillStyle = '#fff';
+      g.fillText(word, W / 2, H / 2 - size * 0.10);
+
+      // 副标题：星星罐
+      var sub = Math.max(18, size * 0.25);
+      g.font = '800 ' + sub + 'px "Segoe UI", "Microsoft YaHei", sans-serif';
+      g.fillText('S T A R   J A R', W / 2, H / 2 + size * 0.53);
+
+      var data = g.getImageData(0, 0, W, H).data;
+      var gap = 3;
+      var pts = [];
+      for (var y = 0; y < H; y += gap) {
+        for (var x = 0; x < W; x += gap) {
+          var alpha = data[(y * W + x) * 4 + 3];
+          if (alpha > 128) {
+            pts.push({
+              // 每个点加一点随机偏移，看起来像手撒的星砂
+              tx: x + (Math.random() - 0.5) * 1.6,
+              ty: y + (Math.random() - 0.5) * 1.6
+            });
+          }
+        }
+      }
+
+      // 上限 5200 个：超了就等距抽样，保证性能
+      var max = 7000;
+      if (pts.length > max) {
+        var step = pts.length / max;
+        var picked = [];
+        for (var i = 0; i < pts.length; i += step) picked.push(pts[Math.floor(i)]);
+        pts = picked;
+      }
+
+      particles = pts.map(function (p) {
+        return {
+          x: W / 2 + (Math.random() - 0.5) * W * 0.9,
+          y: H / 2 + (Math.random() - 0.5) * H * 0.9,
+          tx: p.tx,
+          ty: p.ty,
+          vx: 0,
+          vy: 0,
+          // 归位的快慢略有不同，聚合时更有层次
+          k: 0.022 + Math.random() * 0.022
+        };
+      });
+
+      // 连线只在一小部分「锚点」之间做，避免每帧 O(n²)
+      anchors = [];
+      for (var j = 0; j < particles.length; j += Math.max(1, Math.floor(particles.length / 150))) {
+        anchors.push(particles[j]);
+      }
+
+      countEl.textContent = String(particles.length);
+    }
+
+    function frame() {
+      ctx.clearRect(0, 0, W, H);
+
+      var mouseR = 118;
+      var mouseR2 = mouseR * mouseR;
+
+      for (var i = 0; i < particles.length; i += 1) {
+        var p = particles[i];
+
+        // 弹簧归位
+        p.vx += (p.tx - p.x) * p.k;
+        p.vy += (p.ty - p.y) * p.k;
+
+        // 鼠标排斥
+        if (pointer.active) {
+          var dx = p.x - pointer.x;
+          var dy = p.y - pointer.y;
+          var d2 = dx * dx + dy * dy;
+          if (d2 < mouseR2) {
+            var d = Math.sqrt(d2) || 1;
+            var push = (1 - d / mouseR) * 9;
+            p.vx += (dx / d) * push;
+            p.vy += (dy / d) * push;
+          }
+        }
+
+        // 阻尼
+        p.vx *= 0.90;
+        p.vy *= 0.90;
+        p.x += p.vx;
+        p.y += p.vy;
+      }
+
+      // 散开时给连线加点亮度
+      var spread = 0;
+      for (var a = 0; a < anchors.length; a += 1) {
+        var ap = anchors[a];
+        var ddx = ap.x - ap.tx;
+        var ddy = ap.y - ap.ty;
+        spread += ddx * ddx + ddy * ddy;
+      }
+      spread = spread / Math.max(1, anchors.length);
+      var lineAlpha = Math.min(0.5, spread / 9000) + burst * 0.5;
+
+      if (lineAlpha > 0.02) {
+        ctx.strokeStyle = 'rgba(159, 227, 255, ' + lineAlpha.toFixed(3) + ')';
+        ctx.lineWidth = 0.7;
+        ctx.beginPath();
+        var LIMIT = 46 * 46;
+        for (var a2 = 0; a2 < anchors.length; a2 += 1) {
+          var p1 = anchors[a2];
+          for (var b2 = a2 + 1; b2 < anchors.length; b2 += 1) {
+            var p2 = anchors[b2];
+            var ex = p1.x - p2.x;
+            var ey = p1.y - p2.y;
+            if (ex * ex + ey * ey < LIMIT) {
+              ctx.moveTo(p1.x, p1.y);
+              ctx.lineTo(p2.x, p2.y);
+            }
+          }
+        }
+        ctx.stroke();
+      }
+
+      // 点：越接近目标越白，被推开的偏冷蓝
+      for (var k = 0; k < particles.length; k += 1) {
+        var q = particles[k];
+        var off = Math.abs(q.x - q.tx) + Math.abs(q.y - q.ty);
+        if (off > 3) {
+          ctx.fillStyle = 'rgba(159, 227, 255, 0.85)';
+        } else {
+          ctx.fillStyle = 'rgba(245, 248, 255, 0.92)';
+        }
+        ctx.fillRect(q.x, q.y, 1.5, 1.5);
+      }
+
+      if (burst > 0) burst = Math.max(0, burst - 0.02);
+
+      requestAnimationFrame(frame);
+    }
+
+    window.addEventListener('resize', resize);
+
+    window.addEventListener('pointermove', function (e) {
+      pointer.x = e.clientX;
+      pointer.y = e.clientY;
+      pointer.active = true;
+    });
+
+    window.addEventListener('pointerleave', function () {
+      pointer.active = false;
+    });
+
+    canvas.addEventListener('pointerdown', function (e) {
+      burst = 1;
+      var x = e.clientX;
+      var y = e.clientY;
+      for (var i = 0; i < particles.length; i += 1) {
+        var p = particles[i];
+        var dx = p.x - x;
+        var dy = p.y - y;
+        var d = Math.sqrt(dx * dx + dy * dy) || 1;
+        var power = Math.max(0, 1 - d / 420) * 26;
+        p.vx += (dx / d) * power;
+        p.vy += (dy / d) * power;
+      }
+    });
+
+    resize();
+    if (!reduce) requestAnimationFrame(frame);
+    else {
+      // 减少动效时直接摆好，不做动画
+      particles.forEach(function (p) { p.x = p.tx; p.y = p.ty; });
+      ctx.fillStyle = 'rgba(245,248,255,0.9)';
+      particles.forEach(function (p) { ctx.fillRect(p.x, p.y, 1.5, 1.5); });
+    }
+
+    window.__ready = 'particles';
+  })();
+</script>
+</body>
+</html>

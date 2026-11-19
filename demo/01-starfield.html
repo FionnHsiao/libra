@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>深空星野 · Libra 演示</title>
+<style>
+  :root {
+    --ink: #eef2fb;
+    --muted: #98a1b8;
+    --gold: #dcbb7d;
+    --ice: #8fdcff;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    background: #05060c;
+    color: var(--ink);
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* 画布铺满视口，滚动时星星不动，靠 JS 给一点位移 */
+  #sky {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+    z-index: 0;
+  }
+
+  /* 星云：三团大光斑，慢慢呼吸 */
+  .nebula {
+    position: fixed;
+    inset: -10%;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(46% 38% at 22% 26%, rgba(96, 72, 190, 0.35), transparent 70%),
+      radial-gradient(40% 34% at 78% 30%, rgba(40, 132, 190, 0.28), transparent 70%),
+      radial-gradient(52% 40% at 58% 88%, rgba(190, 130, 70, 0.18), transparent 72%);
+    filter: blur(40px);
+    animation: breathe 18s ease-in-out infinite alternate;
+  }
+
+  @keyframes breathe {
+    from { transform: scale(1) translate3d(0, 0, 0); opacity: 0.85; }
+    to { transform: scale(1.08) translate3d(-1.5%, 1.5%, 0); opacity: 1; }
+  }
+
+  .hero {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    padding: 0 28px;
+  }
+
+  .kicker {
+    margin: 0 0 20px;
+    font-size: 11px;
+    letter-spacing: 0.42em;
+    text-transform: uppercase;
+    color: var(--gold);
+    opacity: 0;
+    animation: rise 1.2s 0.2s ease forwards;
+  }
+
+  h1 {
+    margin: 0;
+    font-family: Georgia, "Songti SC", "SimSun", serif;
+    font-size: clamp(52px, 11vw, 132px);
+    font-weight: 400;
+    letter-spacing: 0.18em;
+    text-indent: 0.18em;
+    line-height: 1;
+    background: linear-gradient(180deg, #ffffff 25%, #b9c8e8 70%, #7d8bab 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    opacity: 0;
+    animation: rise 1.6s 0.35s cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+  }
+
+  .sub {
+    margin: 26px 0 0;
+    max-width: 520px;
+    font-size: 14px;
+    line-height: 2.1;
+    color: var(--muted);
+    opacity: 0;
+    animation: rise 1.6s 0.7s ease forwards;
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .scroll-hint {
+    position: absolute;
+    bottom: 40px;
+    left: 50%;
+    width: 1px;
+    height: 54px;
+    margin-left: -0.5px;
+    background: linear-gradient(180deg, transparent, rgba(220, 187, 125, 0.85));
+    animation: drop 2.6s ease-in-out infinite;
+  }
+
+  @keyframes drop {
+    0%, 100% { opacity: 0.2; transform: scaleY(0.4); transform-origin: top; }
+    50% { opacity: 1; transform: scaleY(1); transform-origin: top; }
+  }
+
+  main {
+    position: relative;
+    z-index: 1;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 40px 32px 200px;
+    background: linear-gradient(180deg, rgba(5, 6, 12, 0) 0%, rgba(5, 6, 12, 0.82) 22%, rgba(5, 6, 12, 0.94) 100%);
+  }
+
+  section {
+    margin: 0 0 96px;
+    padding-top: 24px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  h2 {
+    margin: 0 0 18px;
+    font-family: Georgia, "Songti SC", "SimSun", serif;
+    font-size: 25px;
+    font-weight: 400;
+    letter-spacing: 0.06em;
+    color: #f2f5fd;
+  }
+
+  h2 span {
+    display: inline-block;
+    margin-right: 12px;
+    font-size: 12px;
+    letter-spacing: 0.3em;
+    color: var(--gold);
+    vertical-align: 6px;
+  }
+
+  p {
+    margin: 0 0 16px;
+    font-size: 14.5px;
+    line-height: 2.1;
+    color: #b6bed2;
+  }
+
+  .note {
+    margin-top: 22px;
+    padding: 14px 18px;
+    border-left: 2px solid rgba(143, 220, 255, 0.55);
+    background: rgba(143, 220, 255, 0.05);
+    font-size: 13px;
+    line-height: 1.95;
+    color: #9fb6cc;
+  }
+</style>
+</head>
+<body>
+<canvas id="sky"></canvas>
+<div class="nebula"></div>
+
+<header class="hero">
+  <p class="kicker">Libra · Demo 01</p>
+  <h1>星野</h1>
+  <p class="sub">
+    抬头看，三档视差把远近拉开；那些被连起来的亮星，
+    只是我们愿意相信它们彼此有关。
+  </p>
+  <div class="scroll-hint"></div>
+</header>
+
+<main>
+  <section>
+    <h2><span>I</span>星座是人的想象</h2>
+    <p>
+      天上本没有线。是人们把散落的亮星连起来，命名、编故事，才让夜空有了形状。
+      这一页里那些淡蓝的连线，每两秒会呼吸一次，像有人在替你回忆。
+    </p>
+    <p>
+      移动鼠标，整片天会跟着你偏一点点；滚动页面，近处的星走得快，远处的几乎不动。
+      这三层速度差，就是「深度」的全部秘密。
+    </p>
+  </section>
+
+  <section>
+    <h2><span>II</span>三档视差</h2>
+    <p>
+      远层 120 颗星，慢；中层 80 颗，中等；近层 40 颗，快而亮。
+      每颗星还有自己的闪烁周期和相位，所以整片天空永远不会进入相同的状态。
+    </p>
+    <div class="note">
+      实现只用了一个 canvas 和三组星点数组，没有引入任何库，
+      文件里也就两百来行脚本。
+    </div>
+  </section>
+
+  <section>
+    <h2><span>III</span>流星</h2>
+    <p>
+      每四到九秒，会有一次流星划过。它的位置、角度、亮度都是随机的，
+      所以演示时你没法预先知道下一次从哪儿来——这反而适合当讲解的停顿点。
+    </p>
+    <p>
+      按 Ctrl+F 试一下页内查找；按 F11 进入全屏阅读，这里就只剩星空了。
+    </p>
+  </section>
+</main>
+
+<script>
+  (function () {
+    var canvas = document.getElementById('sky');
+    var ctx = canvas.getContext('2d');
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var W = 0;
+    var H = 0;
+
+    // 三层星：每层给不同的视差系数和尺寸
+    var layers = [
+      { depth: 0.12, count: 120, size: 0.9, alpha: 0.55, stars: [] },
+      { depth: 0.32, count: 80, size: 1.4, alpha: 0.75, stars: [] },
+      { depth: 0.62, count: 40, size: 2.1, alpha: 0.95, stars: [] }
+    ];
+
+    // 星座：归一化坐标，缩放到视口时用最短边
+    var nodes = [
+      [0.18, 0.30], [0.27, 0.22], [0.36, 0.30], [0.34, 0.42],
+      [0.24, 0.44], [0.45, 0.20], [0.54, 0.28], [0.62, 0.18],
+      [0.70, 0.30], [0.66, 0.44], [0.78, 0.50], [0.72, 0.62],
+      [0.56, 0.58], [0.46, 0.66], [0.36, 0.60], [0.26, 0.66]
+    ];
+    var edges = [
+      [0, 1], [1, 2], [2, 3], [3, 4], [4, 0],
+      [2, 5], [5, 6], [6, 7], [7, 8], [8, 9], [9, 10],
+      [10, 11], [11, 12], [12, 13], [13, 14], [14, 15], [15, 4],
+      [12, 6], [9, 3], [13, 3]
+    ];
+
+    var shooting = [];
+    var nextShootingAt = performance.now() + 2600;
+    var pointer = { x: 0, y: 0, tx: 0, ty: 0 };
+    var scrollRatio = 0;
+
+    function resize() {
+      W = window.innerWidth;
+      H = window.innerHeight;
+      canvas.width = Math.floor(W * dpr);
+      canvas.height = Math.floor(H * dpr);
+      canvas.style.width = W + 'px';
+      canvas.style.height = H + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      seedStars();
+    }
+
+    function seedStars() {
+      layers.forEach(function (layer, li) {
+        layer.stars = [];
+        for (var i = 0; i < layer.count; i += 1) {
+          layer.stars.push({
+            x: Math.random() * W,
+            y: Math.random() * H,
+            // 闪烁的相位和速度，让每颗星都不同步
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.4 + Math.random() * 1.4,
+            tint: li === 2 && Math.random() > 0.75 ? '#ffe9c4' : '#ffffff'
+          });
+        }
+      });
+    }
+
+    function drawStars(t) {
+      for (var li = 0; li < layers.length; li += 1) {
+        var layer = layers[li];
+        var ox = pointer.x * layer.depth * 34;
+        var oy = pointer.y * layer.depth * 34 - scrollRatio * layer.depth * 120;
+        for (var i = 0; i < layer.stars.length; i += 1) {
+          var s = layer.stars[i];
+          var a = layer.alpha * (0.55 + 0.45 * Math.sin(t * 0.001 * s.speed + s.phase));
+          ctx.globalAlpha = a;
+          ctx.fillStyle = s.tint;
+          var size = layer.size;
+          // 近层偶尔画一点光晕
+          if (size > 2) {
+            ctx.beginPath();
+            ctx.arc(s.x + ox, s.y + oy, size * 2.6, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(180,220,255,0.10)';
+            ctx.fill();
+            ctx.fillStyle = s.tint;
+          }
+          ctx.fillRect(s.x + ox - size / 2, s.y + oy - size / 2, size, size);
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawConstellation(t) {
+      var base = Math.min(W, H) * 0.9;
+      var cx = W * 0.5 + pointer.x * 10;
+      var cy = H * 0.46 + pointer.y * 10 - scrollRatio * 26;
+      var breathe = 0.5 + 0.28 * Math.sin(t * 0.0011);
+
+      ctx.save();
+      ctx.shadowColor = 'rgba(120, 200, 255, 0.65)';
+      ctx.shadowBlur = 6;
+      ctx.lineWidth = 1.1;
+      ctx.strokeStyle = 'rgba(150, 224, 255, ' + breathe.toFixed(3) + ')';
+      ctx.beginPath();
+      for (var e = 0; e < edges.length; e += 1) {
+        var a = nodes[edges[e][0]];
+        var b = nodes[edges[e][1]];
+        ctx.moveTo(cx + (a[0] - 0.5) * base, cy + (a[1] - 0.5) * base);
+        ctx.lineTo(cx + (b[0] - 0.5) * base, cy + (b[1] - 0.5) * base);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      // 节点：中心亮点 + 一圈很淡的晕
+      for (var i = 0; i < nodes.length; i += 1) {
+        var p = nodes[i];
+        var x = cx + (p[0] - 0.5) * base;
+        var y = cy + (p[1] - 0.5) * base;
+        var pulse = 0.6 + 0.4 * Math.sin(t * 0.0016 + i);
+        var g = ctx.createRadialGradient(x, y, 0, x, y, 9 * pulse);
+        g.addColorStop(0, 'rgba(255,255,255,0.95)');
+        g.addColorStop(0.35, 'rgba(180,225,255,0.45)');
+        g.addColorStop(1, 'rgba(140,200,255,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, 9 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function spawnShooting() {
+      var fromLeft = Math.random() > 0.5;
+      var angle = (fromLeft ? 1 : -1) * (0.32 + Math.random() * 0.16);
+      shooting.push({
+        x: fromLeft ? -80 : W + 80,
+        y: Math.random() * H * 0.55,
+        vx: (fromLeft ? 1 : -1) * (7 + Math.random() * 4),
+        vy: Math.abs(angle) * 4 + Math.random() * 1.5,
+        life: 1,
+        len: 90 + Math.random() * 90
+      });
+    }
+
+    function drawShooting() {
+      for (var i = shooting.length - 1; i >= 0; i -= 1) {
+        var s = shooting[i];
+        s.x += s.vx;
+        s.y += s.vy;
+        s.life -= 0.009;
+        if (s.life <= 0 || s.x < -200 || s.x > W + 200 || s.y > H + 120) {
+          shooting.splice(i, 1);
+          continue;
+        }
+        var tailX = s.x - s.vx * (s.len / 10);
+        var tailY = s.y - s.vy * (s.len / 10);
+        var grad = ctx.createLinearGradient(s.x, s.y, tailX, tailY);
+        grad.addColorStop(0, 'rgba(255,255,255,' + (0.85 * s.life).toFixed(3) + ')');
+        grad.addColorStop(1, 'rgba(160,200,255,0)');
+        ctx.strokeStyle = grad;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(s.x, s.y);
+        ctx.lineTo(tailX, tailY);
+        ctx.stroke();
+      }
+    }
+
+    var last = performance.now();
+
+    function frame(now) {
+      var dt = Math.min(now - last, 60);
+      last = now;
+
+      // 指针做阻尼跟随，避免抖动
+      pointer.x += (pointer.tx - pointer.x) * 0.06;
+      pointer.y += (pointer.ty - pointer.y) * 0.06;
+
+      ctx.clearRect(0, 0, W, H);
+      drawStars(now);
+      drawConstellation(now);
+      if (!reduce && now > nextShootingAt) {
+        spawnShooting();
+        nextShootingAt = now + 3800 + Math.random() * 5200;
+      }
+      drawShooting();
+
+      requestAnimationFrame(frame);
+    }
+
+    window.addEventListener('resize', resize);
+    window.addEventListener('pointermove', function (e) {
+      pointer.tx = (e.clientX / W - 0.5) * 2;
+      pointer.ty = (e.clientY / H - 0.5) * 2;
+    });
+    window.addEventListener('scroll', function () {
+      scrollRatio = Math.min(1, window.scrollY / Math.max(1, H));
+    }, { passive: true });
+
+    resize();
+    requestAnimationFrame(frame);
+    window.__ready = 'starfield';
+  })();
+</script>
+</body>
+</html>
