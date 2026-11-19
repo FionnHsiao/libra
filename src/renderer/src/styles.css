@@ -84,7 +84,7 @@ body {
   -webkit-app-region: no-drag;
 }
 
-/* macOS：给左上角红绿灯留出位置（红绿灯 18px 起，三个按钮约 52px 宽） */
+/* macOS：给左上角红绿灯留出位置（红绿灯从 20px 起，三个按钮约 52px 宽） */
 body.platform-darwin .titlebar-left {
   padding-left: 92px;
 }
