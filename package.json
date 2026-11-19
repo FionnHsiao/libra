@@ -1,6 +1,6 @@
 {
   "name": "libra",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A lightweight desktop reader for local HTML files.",
   "main": "./out/main/index.js",
   "author": "FionnHsiao",
@@ -40,3 +40,4 @@
   },
   "repository": "https://github.com/HsiaoBob/Libra"
 }
+
