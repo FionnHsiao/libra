@@ -80,6 +80,12 @@ export class FindHost {
       /* 页面已经没了 */
     }
     this.view?.setVisible(false)
+    // 关掉查找栏之后把焦点还给正文，否则键盘没有落点
+    try {
+      this.preview.webContents.focus()
+    } catch {
+      /* 窗口已经关了 */
+    }
   }
 
   query(text: unknown, forward: unknown, mode: unknown): void {
@@ -102,9 +108,9 @@ export class FindHost {
       this.close()
       return
     }
-    const width = Math.min(VIEW_WIDTH, Math.max(240, bounds.width - MARGIN * 2))
+    const width = Math.min(VIEW_WIDTH, Math.max(160, bounds.width - MARGIN * 2))
     this.view?.setBounds({
-      x: Math.round(bounds.x + bounds.width - width - MARGIN),
+      x: Math.round(Math.max(bounds.x + 8, bounds.x + bounds.width - width - MARGIN)),
       y: Math.round(bounds.y + MARGIN),
       width,
       height: VIEW_HEIGHT
