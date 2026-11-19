@@ -193,6 +193,15 @@ body.platform-darwin .titlebar-fill {
   flex: 1;
 }
 
+/* 页签栏从视图菜单收起后，正文直接顶到标题栏下面 */
+.app.tabs-hidden .tabbar {
+  display: none;
+}
+
+.app.tabs-hidden .center {
+  grid-template-rows: minmax(0, 1fr);
+}
+
 /* 目录栏收起来时，左边那条图标栏也一起收掉，正文占满剩下的宽度 */
 .app.files-hidden .rail {
   display: none;

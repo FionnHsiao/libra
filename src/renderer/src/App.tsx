@@ -65,6 +65,8 @@ export function App(): ReactElement {
   const [status, setStatus] = useState<string | null>(null)
   const [filesVisible, setFilesVisible] = useState(true)
   const [outlineVisible, setOutlineVisible] = useState(false)
+  // 页签栏可以从「视图」菜单里收起，正文多出 38px
+  const [tabbarVisible, setTabbarVisible] = useState(true)
   const [leftWidth, setLeftWidth] = useState(244)
   const [rightWidth, setRightWidth] = useState(204)
   const [tabListOpen, setTabListOpen] = useState(false)
@@ -573,6 +575,12 @@ export function App(): ReactElement {
           checked: outlineVisible,
           onSelect: () => setOutlineVisible((current) => !current)
         },
+        {
+          type: 'item',
+          label: '页签栏',
+          checked: tabbarVisible,
+          onSelect: () => setTabbarVisible((current) => !current)
+        },
         { type: 'separator' },
         { type: 'item', label: '实际大小', accelerator: acc('Ctrl+0'), onSelect: () => window.libra.appAction('zoom-reset') },
         { type: 'item', label: '放大', accelerator: acc('Ctrl+='), onSelect: () => window.libra.appAction('zoom-in') },
@@ -609,7 +617,12 @@ export function App(): ReactElement {
 
   const titleText = status ?? (activePath ? baseName(activePath) : 'Libra')
 
-  const shellClass = ['app', immersive ? 'immersive' : '', filesVisible ? '' : 'files-hidden']
+  const shellClass = [
+    'app',
+    immersive ? 'immersive' : '',
+    filesVisible ? '' : 'files-hidden',
+    tabbarVisible ? '' : 'tabs-hidden'
+  ]
     .filter(Boolean)
     .join(' ')
 

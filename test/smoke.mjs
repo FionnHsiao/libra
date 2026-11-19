@@ -399,6 +399,36 @@ try {
   const restoredByMenu = await shell.evaluate(`document.querySelectorAll('.panel-left').length`)
   check('菜单项切换文件列表并同步勾选', hiddenByMenu === 0 && checkedByMenu === '' && restoredByMenu === 1, `隐藏 ${hiddenByMenu}，勾选 "${checkedByMenu}"，恢复 ${restoredByMenu}`)
 
+  // 页签栏也能从视图菜单里收起
+  const tabbarBefore = await shell.evaluate(`Math.round(document.querySelector('.tabbar').getBoundingClientRect().height)`)
+  await parkOnMenu('视图')
+  await shell.evaluate(`[...document.querySelectorAll('.menubar-button')].find((b) => b.textContent.trim() === '视图').click()`)
+  await sleep(600)
+  const tabbarChecked = await withOverlay((overlay) =>
+    overlay.evaluate(
+      `[...document.querySelectorAll('.row')].find((r) => r.textContent.includes('页签栏'))?.querySelector('.check')?.textContent ?? 'missing'`
+    )
+  )
+  await overlayClick('页签栏')
+  await sleep(500)
+  const tabbarHidden = JSON.parse(
+    await shell.evaluate(`JSON.stringify({
+      height: Math.round(document.querySelector('.tabbar').getBoundingClientRect().height),
+      display: getComputedStyle(document.querySelector('.tabbar')).display
+    })`)
+  )
+  await parkOnMenu('视图')
+  await shell.evaluate(`[...document.querySelectorAll('.menubar-button')].find((b) => b.textContent.trim() === '视图').click()`)
+  await sleep(600)
+  await overlayClick('页签栏')
+  await sleep(500)
+  const tabbarAfter = await shell.evaluate(`Math.round(document.querySelector('.tabbar').getBoundingClientRect().height)`)
+  check(
+    '视图菜单可以收起页签栏',
+    tabbarChecked === '✓' && tabbarHidden.height === 0 && tabbarHidden.display === 'none' && tabbarAfter === tabbarBefore,
+    `勾选 "${tabbarChecked}"，高度 ${tabbarBefore} -> ${tabbarHidden.height} -> ${tabbarAfter}`
+  )
+
   await shell.evaluate(`document.querySelector('.tab.active .tab-close').click()`)
   await sleep(700)
   const afterClose = JSON.parse(
