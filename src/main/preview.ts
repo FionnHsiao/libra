@@ -89,11 +89,12 @@ export class PreviewHost {
     }
     const zoom = this.win.webContents.getZoomFactor() || 1
     this.view.setVisible(true)
+    // rect 是 CSS px，setBounds 要 DIP：缩放 1.2 时 1 CSS px = 1.2 DIP
     this.view.setBounds({
-      x: Math.round(rect.x / zoom),
-      y: Math.round(rect.y / zoom),
-      width: Math.round(rect.width / zoom),
-      height: Math.round(rect.height / zoom)
+      x: Math.round(rect.x * zoom),
+      y: Math.round(rect.y * zoom),
+      width: Math.round(rect.width * zoom),
+      height: Math.round(rect.height * zoom)
     })
   }
 

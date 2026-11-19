@@ -24,6 +24,8 @@ function describeError(error: unknown): string {
   return String(error)
 }
 
+const OPEN_KEY = window.libra.platform === 'darwin' ? '⌘O' : 'Ctrl+O'
+
 function EmptyState({
   onOpen,
   onAddFolder
@@ -40,7 +42,7 @@ function EmptyState({
       <p>
         文件夹整棵放进「星星罐」，左边列出全部文件，磁盘上增删改会自动同步；
         单个 HTML 只加一条，不会把同级目录一起拉进来。也可以直接把 HTML{' '}
-        <span className="nowrap">拖进窗口</span>，或按 <span className="nowrap">Ctrl+O</span>。
+        <span className="nowrap">拖进窗口</span>，或按 <span className="nowrap">{OPEN_KEY}</span>。
       </p>
       <div className="empty-actions">
         <button className="primary" type="button" onClick={onOpen}>
@@ -53,6 +55,7 @@ function EmptyState({
     </div>
   )
 }
+
 
 export function App(): ReactElement {
   const [tabs, setTabs] = useState<string[]>([])
@@ -141,8 +144,9 @@ export function App(): ReactElement {
 
   const openFile = useCallback(
     async (path: string) => {
-      if (tabsRef.current.includes(path)) {
-        activate(path)
+      const existing = tabsRef.current.find((tab) => tab.toLowerCase() === path.toLowerCase())
+      if (existing) {
+        activate(existing)
         return
       }
       try {
@@ -525,7 +529,7 @@ export function App(): ReactElement {
           }
         },
         { type: 'separator' },
-        { type: 'item', label: '退出', accelerator: acc('Alt+F4'), onSelect: () => window.libra.appAction('quit') }
+        { type: 'item', label: '退出', accelerator: window.libra.platform === 'darwin' ? '⌘Q' : 'Alt+F4', onSelect: () => window.libra.appAction('quit') }
       ]
     },
     {
