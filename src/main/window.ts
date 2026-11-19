@@ -6,8 +6,12 @@ import { join } from 'node:path'
 const devServerUrl = process.env['ELECTRON_RENDERER_URL']
 
 export function createMainWindow(): BrowserWindow {
-  const iconPath = join(__dirname, '../../resources/icon.png')
   const isMac = process.platform === 'darwin'
+  // Windows 用满幅图标；macOS 用 1024 画布、内容 824 的版本，否则 Dock 里会比别的 App 大一圈
+  const iconPath = join(
+    __dirname,
+    isMac ? '../../resources/icons/icon-mac-1024.png' : '../../resources/icon.png'
+  )
 
   const win = new BrowserWindow({
     ...(existsSync(iconPath) ? { icon: iconPath } : {}),
@@ -19,7 +23,10 @@ export function createMainWindow(): BrowserWindow {
     title: 'Libra',
     titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
     ...(isMac
-      ? {}
+      ? {
+          // 红绿灯默认位置偏高偏左，固定住才能和 40px 标题栏对齐
+          trafficLightPosition: { x: 20, y: 14 }
+        }
       : {
           titleBarOverlay: {
             color: '#ececee',
@@ -49,7 +56,7 @@ export function createMainWindow(): BrowserWindow {
   const showTimer = setTimeout(showWindow, 1500)
   win.on('closed', () => clearTimeout(showTimer))
 
-  if (isMac) {
+  if (isMac && existsSync(iconPath)) {
     app.dock?.setIcon(iconPath)
   }
 

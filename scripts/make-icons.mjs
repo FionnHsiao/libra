@@ -25,6 +25,30 @@ for (const size of SIZES) {
 
 fs.writeFileSync(path.join(RES, "icon.png"), pngs[512]);
 
+// macOS 图标规范：1024 画布里内容只占 824×824，四周留透明。
+// 满幅图标在 Dock 里会比其它 App 大一圈。
+const MAC_CANVAS = 1024;
+const MAC_CONTENT = 824;
+const macPad = (MAC_CANVAS - MAC_CONTENT) / 2;
+const macIcon = await sharp({
+  create: {
+    width: MAC_CANVAS,
+    height: MAC_CANVAS,
+    channels: 4,
+    background: { r: 0, g: 0, b: 0, alpha: 0 }
+  }
+})
+  .composite([
+    {
+      input: await sharp(pngs[1024]).resize(MAC_CONTENT, MAC_CONTENT).png().toBuffer(),
+      left: macPad,
+      top: macPad
+    }
+  ])
+  .png({ compressionLevel: 9 })
+  .toBuffer();
+fs.writeFileSync(path.join(OUT, "icon-mac-1024.png"), macIcon);
+
 function buildIco(entries) {
   const count = entries.length;
   const header = Buffer.alloc(6);
@@ -56,4 +80,5 @@ fs.mkdirSync(path.resolve("build"), { recursive: true });
 fs.writeFileSync(path.resolve("build/icon.ico"), ico);
 
 console.log("icons:", SIZES.map((s) => `${s}px`).join(", "));
+console.log("mac icon:", `${MAC_CONTENT}px content in ${MAC_CANVAS}px canvas`);
 console.log("ico bytes:", ico.length);

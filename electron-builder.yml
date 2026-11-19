@@ -31,7 +31,7 @@ mac:
       arch: [x64, arm64]
     - target: zip
       arch: [x64, arm64]
-  icon: resources/icons/icon-1024.png
+  icon: resources/icons/icon-mac-1024.png
   category: public.app-category.productivity
   artifactName: Libra-${version}-${arch}.${ext}
   darkModeSupport: false

@@ -15,7 +15,8 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run dist:win
+      # CI 里不发布，只出安装包，避免因缺少 GH_TOKEN 直接失败
+      - run: npm run dist:win -- --publish never
       - uses: actions/upload-artifact@v4
         with:
           name: libra-windows
@@ -30,7 +31,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
-      - run: npm run dist:mac
+      - run: npm run dist:mac -- --publish never
       - uses: actions/upload-artifact@v4
         with:
           name: libra-macos
