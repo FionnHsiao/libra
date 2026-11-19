@@ -62,6 +62,8 @@ npm run smoke
 
 `npm run smoke` 启动真实应用跑一遍端到端检查。
 
+国内网络下 `npm install` 可能卡在下载 Electron 二进制，可以先设 `ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/`。
+
 设计取舍见 [docs/architecture.md](docs/architecture.md)，工程约定见 [AGENTS.md](AGENTS.md)。
 
 ## License
