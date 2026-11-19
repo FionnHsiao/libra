@@ -45,7 +45,7 @@ npm run dist:mac    # macOS dmg + zip，必须在 macOS 上跑
 npm run pack        # 只出免安装目录，用来快速试
 ```
 
-产物在 `dist/`。macOS 包没有签名，第一次打开要右键 → 打开。
+产物在 `dist/`。macOS 包没有签名，第一次打开要在「系统设置 → 隐私与安全性」里放行。没有 Mac 怎么出包见 [docs/mac-build.md](docs/mac-build.md)。
 
 ## 平台
 
