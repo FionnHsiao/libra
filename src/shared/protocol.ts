@@ -65,6 +65,7 @@ export type CommandId =
   | 'toggle-immersive'
   | 'exit-immersive'
   | 'refresh-preview-bounds'
+  | 'find'
 
 export type AppAction =
   | 'quit'
@@ -93,6 +94,8 @@ export interface LibraApi {
   reloadPreview(): void
   setPreviewBounds(rect: PreviewRect | null): void
   setImmersive(active: boolean): void
+  openFind(): void
+  closeFind(): void
   openOverlay(payload: OverlayOpenPayload): void
   closeOverlay(): void
   onOverlaySelect(callback: (id: string) => void): () => void
@@ -141,6 +144,10 @@ export const CH = {
   previewOutline: 'libra:preview:outline',
   previewScrollTo: 'libra:preview:scroll-to',
   previewHint: 'libra:preview:hint',
+  findOpen: 'libra:find:open',
+  findQuery: 'libra:find:query',
+  findClose: 'libra:find:close',
+  findResult: 'libra:find:result',
   reveal: 'libra:file:reveal',
   appAction: 'libra:app:action',
   command: 'libra:command',

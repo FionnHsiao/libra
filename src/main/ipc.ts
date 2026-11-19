@@ -14,6 +14,7 @@ import { syncWatchers } from './watcher'
 import { adjustZoom, showShortcutsDialog } from './menu'
 import { getOverlayHost, getOverlayHostBySender } from './overlay'
 import { getPreviewHost } from './preview'
+import { getFindHost, getFindHostBySender } from './find'
 
 const allowedExtensions = new Set<string>(ALLOWED_EXTENSIONS)
 const htmlExtensions = new Set<string>(HTML_EXTENSIONS)
@@ -229,6 +230,20 @@ export function registerIpc(): void {
     const win = BrowserWindow.fromWebContents(event.sender)
     if (!win) return
     getPreviewHost(win.webContents.id)?.flashHint(rawText)
+  })
+
+  ipcMain.on(CH.findOpen, (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    getFindHost(win.webContents.id)?.openBar()
+  })
+
+  ipcMain.on(CH.findQuery, (event, text: unknown, forward: unknown, findNext: unknown) => {
+    getFindHostBySender(event.sender.id)?.query(text, forward, findNext)
+  })
+
+  ipcMain.on(CH.findClose, (event) => {
+    getFindHostBySender(event.sender.id)?.close()
   })
 
   // 全屏阅读：窗口进全屏，界面上的栏全部由渲染进程隐藏。

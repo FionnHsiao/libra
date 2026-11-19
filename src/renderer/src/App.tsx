@@ -213,10 +213,29 @@ export function App(): ReactElement {
 
   const removeEntry = useCallback(
     (path: string) => {
+      const removed = entriesRef.current.find((entry) => entry.path.toLowerCase() === path.toLowerCase())
       commitEntries(entriesRef.current.filter((entry) => entry.path.toLowerCase() !== path.toLowerCase()))
+
+      // 目录被移出星星罐时，目录下的页签跟着关掉
+      const doomed = tabsRef.current.filter((tab) =>
+        removed?.kind === 'dir' ? isInside(removed.path, tab) : tab.toLowerCase() === path.toLowerCase()
+      )
+      if (doomed.length > 0) {
+        const next = tabsRef.current.filter((tab) => !doomed.includes(tab))
+        commit(next)
+        historyRef.current = historyRef.current.filter((item) => !doomed.includes(item))
+        setCanGoBack(historyRef.current.length > 1)
+        const current = activePathRef.current
+        if (current && doomed.includes(current)) {
+          const fallback = next[next.length - 1] ?? null
+          activePathRef.current = fallback
+          setActivePath(fallback)
+        }
+      }
+
       setStatus('已移出星星罐（磁盘文件未删除）')
     },
-    [commitEntries]
+    [commit, commitEntries]
   )
 
   const handleRenamed = useCallback(
@@ -423,11 +442,16 @@ export function App(): ReactElement {
         window.libra.reloadPreview()
         return
       }
+      if (message.id === 'find') {
+        window.libra.openFind()
+        return
+      }
       if (message.id === 'toggle-immersive') {
         setImmersive((current) => !current)
         return
       }
       if (message.id === 'exit-immersive') {
+        window.libra.closeFind()
         setImmersive(false)
       }
     })
@@ -561,6 +585,13 @@ export function App(): ReactElement {
           checked: immersive,
           disabled: !hasTab,
           onSelect: () => setImmersive((current) => !current)
+        },
+        {
+          type: 'item',
+          label: '在正文中查找…',
+          accelerator: acc('Ctrl+F'),
+          disabled: !hasTab,
+          onSelect: () => window.libra.openFind()
         },
         { type: 'item', label: '刷新预览', accelerator: acc('Ctrl+R'), onSelect: () => window.libra.reloadPreview() }
       ]

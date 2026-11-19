@@ -13,6 +13,7 @@ const SHORTCUTS_TEXT = [
   `放大 / 缩小        ${MOD}= / ${MOD}+-`,
   `实际大小          ${MOD}+0`,
   `刷新预览          ${MOD}+R`,
+  `在正文中查找      ${MOD}+F`,
   `全屏阅读          ${FULLSCREEN_KEYS} / Esc 退出`
 ].join('\n')
 
@@ -117,6 +118,11 @@ export function handleShortcutInput(event: ElectronEvent, input: Input, win: Bro
     return
   }
 
+  if (key === 'f' && !shift) {
+    event.preventDefault()
+    send(win, 'find')
+    return
+  }
   if (key === 'o' && !shift) {
     event.preventDefault()
     send(win, 'open')

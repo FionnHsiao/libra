@@ -26,3 +26,8 @@ test('isInside 支持盘符根目录与嵌套', () => {
   assert.equal(isInside('E:\\潘', 'E:\\潘2\\note.html'), false)
   assert.equal(isInside('E:\\潘\\', 'E:\\潘\\note.html'), true)
 })
+test('isInside 不区分分隔符', () => {
+  assert.equal(isInside('E:/Libra/libra/test', 'E:\\Libra\\libra\\test\\a.html'), true)
+  assert.equal(isInside('E:\\Libra\\libra', 'E:/Libra/libra/a.html'), true)
+  assert.equal(isInside('E:/Libra/libra', 'E:\\Libra\\libra2\\a.html'), false)
+})

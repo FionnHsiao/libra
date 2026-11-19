@@ -556,7 +556,7 @@ try {
   await sleep(1900)
   await shell.bringToFront()
   await sleep(1200)
-  const previewWidthAfter = await preview.evaluate(`window.innerWidth`)
+  let previewWidthAfter = await preview.evaluate(`window.innerWidth`)
   const restored = JSON.parse(
     await shell.evaluate(`(() => {
       const h = document.querySelector('.preview-host').getBoundingClientRect()
@@ -577,6 +577,12 @@ try {
     `网页宽 ${restored.w}，之前 ${hostBefore.w}`
   )
   // 原生预览视图是独立的，DOM 还原不代表它还原，这里直接量预览页自己的宽度
+  // 窗口被挡住时 Chromium 会把页面标成 hidden，视图尺寸变化会晚一点生效，
+  // 多量几次，2 秒内收敛就算通过
+  for (let i = 0; i < 10 && Math.abs(previewWidthAfter - restored.w) > 2; i += 1) {
+    await sleep(200)
+    previewWidthAfter = await preview.evaluate(`window.innerWidth`)
+  }
   check(
     '退出全屏后预览视图缩回原来的位置',
     Math.abs(previewWidthAfter - restored.w) <= 2,

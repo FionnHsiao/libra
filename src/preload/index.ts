@@ -42,6 +42,8 @@ const api: LibraApi = {
   revealInFolder: (path) => ipcRenderer.send(CH.reveal, path),
   appAction: (action) => ipcRenderer.send(CH.appAction, action),
   ready: () => ipcRenderer.send(CH.ready),
+  openFind: () => ipcRenderer.send(CH.findOpen),
+  closeFind: () => ipcRenderer.send(CH.findClose),
   pathForFile: (file) => {
     try {
       return webUtils.getPathForFile(file)
@@ -105,3 +107,19 @@ const overlayApi = {
 }
 
 contextBridge.exposeInMainWorld('overlayApi', overlayApi)
+
+// 查找栏也是独立视图，和弹层一样需要一个很小的专用接口
+const findApi = {
+  query: (text: string, forward: boolean, mode: 'new' | 'next'): void =>
+    ipcRenderer.send(CH.findQuery, text, forward, mode),
+  close: (): void => ipcRenderer.send(CH.findClose),
+  onResult: (callback: (result: { active: number; matches: number }) => void): (() => void) => {
+    const handler = (_event: unknown, result: { active: number; matches: number }): void => callback(result)
+    ipcRenderer.on(CH.findResult, handler)
+    return () => {
+      ipcRenderer.removeListener(CH.findResult, handler)
+    }
+  }
+}
+
+contextBridge.exposeInMainWorld('findApi', findApi)

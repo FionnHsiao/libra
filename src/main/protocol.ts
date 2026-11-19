@@ -51,7 +51,9 @@ const TEXT_LIKE = new Set([
   '.md'
 ])
 
-const allowedRoots = new Set<string>()
+// 只允许当前文档所在的目录：以前是所有打开过的目录累加，
+// 一次会话里读过的文件夹会对之后加载的任何页面都可读。
+let allowedRoot: string | null = null
 
 export function registerPreviewScheme(): void {
   protocol.registerSchemesAsPrivileged([
@@ -69,17 +71,15 @@ export function registerPreviewScheme(): void {
 }
 
 export function allowRoot(directory: string): void {
-  allowedRoots.add(resolve(directory).toLowerCase())
+  allowedRoot = resolve(directory).toLowerCase()
 }
 
 function isAllowed(target: string): boolean {
+  if (!allowedRoot) return false
   const normalized = resolve(target).toLowerCase()
-  for (const root of allowedRoots) {
-    const rel = relative(root, normalized)
-    if (rel === '') return true
-    if (!rel.startsWith('..') && !isAbsolute(rel)) return true
-  }
-  return false
+  const rel = relative(allowedRoot, normalized)
+  if (rel === '') return true
+  return !rel.startsWith('..') && !isAbsolute(rel)
 }
 
 export function toPreviewUrl(filePath: string): string {

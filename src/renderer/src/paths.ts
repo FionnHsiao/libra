@@ -16,8 +16,10 @@ export function dirName(path: string): string {
 }
 
 export function isInside(root: string, target: string): boolean {
-  const normalize = (value: string): string => value.replace(/[\\/]+$/, '').toLowerCase()
+  // 两边的分隔符可能不一致（设置文件里存过正斜杠），先统一成 /
+  const normalize = (value: string): string => value.replace(/[\\/]+$/, '').replace(/\\/g, '/').toLowerCase()
   const base = normalize(root)
   const path = normalize(target)
-  return path === base || path.startsWith(`${base}\\`) || path.startsWith(`${base}/`)
+  if (path === base) return true
+  return path.startsWith(`${base}/`)
 }

@@ -7,6 +7,7 @@ import { registerIpc } from './ipc'
 import { loadEntries } from './settings'
 import { syncWatchers } from './watcher'
 import { createOverlayHost, disposeOverlayHost } from './overlay'
+import { createFindHost, disposeFindHost } from './find'
 import { createPreviewHost, disposePreviewHost } from './preview'
 import { installPreviewProtocol, registerPreviewScheme } from './protocol'
 import { createMainWindow } from './window'
@@ -47,9 +48,11 @@ function createWindow(): void {
   const contentsId = win.webContents.id
   const previewHost = createPreviewHost(win)
   const overlayHost = createOverlayHost(win)
+  createFindHost(win, previewHost)
   previewHost.onPointerDown(() => overlayHost.dismiss())
 
   win.on('closed', () => {
+    disposeFindHost(contentsId)
     disposePreviewHost(contentsId)
     disposeOverlayHost(contentsId)
     mainWindow = null

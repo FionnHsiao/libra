@@ -1,4 +1,4 @@
-import { BrowserWindow, shell, WebContentsView } from 'electron'
+import { BrowserWindow, shell, WebContentsView, type WebContents } from 'electron'
 import { dirname } from 'node:path'
 import { CH, type OutlineItem, type PreviewRect } from '../shared/protocol'
 import { handleShortcutInput } from './menu'
@@ -23,6 +23,11 @@ const OUTLINE_SCRIPT = `(() => {
 
 export class PreviewHost {
   private readonly view: WebContentsView
+  private bounds: PreviewRect | null = null
+  private currentPath: string | null = null
+  // 每个页签的滚动位置：切回来时恢复，最多记 40 个
+  private readonly scrollByPath = new Map<string, number>()
+  private readonly boundsListeners: Array<(rect: PreviewRect | null) => void> = []
 
   constructor(private readonly win: BrowserWindow) {
     this.view = new WebContentsView({
@@ -69,6 +74,7 @@ export class PreviewHost {
     })
 
     contents.on('did-finish-load', () => {
+      this.restoreScroll()
       void this.publishOutline()
     })
 
@@ -78,15 +84,36 @@ export class PreviewHost {
   }
 
   async load(filePath: string): Promise<void> {
+    await this.captureScroll()
     allowRoot(dirname(filePath))
+    this.currentPath = filePath
     await this.view.webContents.loadURL(toPreviewUrl(filePath))
+  }
+
+  get webContents(): WebContents {
+    return this.view.webContents
+  }
+
+  getBounds(): PreviewRect | null {
+    return this.bounds
+  }
+
+  onBoundsChanged(callback: (rect: PreviewRect | null) => void): void {
+    this.boundsListeners.push(callback)
+  }
+
+  private notifyBounds(): void {
+    for (const listener of this.boundsListeners) listener(this.bounds)
   }
 
   setBounds(rect: PreviewRect | null): void {
     if (!rect || rect.width < 8 || rect.height < 8) {
+      this.bounds = null
       this.view.setVisible(false)
+      this.notifyBounds()
       return
     }
+    this.bounds = rect
     const zoom = this.win.webContents.getZoomFactor() || 1
     this.view.setVisible(true)
     // rect 是 CSS px，setBounds 要 DIP：缩放 1.2 时 1 CSS px = 1.2 DIP
@@ -96,10 +123,47 @@ export class PreviewHost {
       width: Math.round(rect.width * zoom),
       height: Math.round(rect.height * zoom)
     })
+    this.notifyBounds()
   }
 
   reload(): void {
-    this.view.webContents.reload()
+    void this.captureScroll().then(() => this.view.webContents.reload())
+  }
+
+  /** 记住当前页面的滚动位置，切换页签前调用 */
+  private async captureScroll(): Promise<void> {
+    const path = this.currentPath
+    if (!path) return
+    try {
+      const y = await this.view.webContents.executeJavaScript('window.scrollY', true)
+      if (typeof y === 'number' && y > 1) this.rememberScroll(path, y)
+    } catch {
+      /* 页面已经销毁，忽略 */
+    }
+  }
+
+  private rememberScroll(path: string, y: number): void {
+    this.scrollByPath.delete(path)
+    this.scrollByPath.set(path, y)
+    if (this.scrollByPath.size > 40) {
+      const oldest = this.scrollByPath.keys().next().value
+      if (oldest !== undefined) this.scrollByPath.delete(oldest)
+    }
+  }
+
+  private restoreScroll(): void {
+    const path = this.currentPath
+    if (!path) return
+    const y = this.scrollByPath.get(path)
+    if (!y) return
+    const jump = (): void => {
+      void this.view.webContents
+        .executeJavaScript(`window.scrollTo(0, ${Math.round(y)})`, true)
+        .catch(() => undefined)
+    }
+    jump()
+    // 图片、字体晚一点撑开高度，补一次
+    setTimeout(jump, 150)
   }
 
   /** 预览页里的鼠标按下事件（原生视图不会把事件传给主窗口的 DOM） */
