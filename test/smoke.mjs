@@ -180,7 +180,7 @@ try {
   check('文件树上方是星星罐标题', ui.jarTitle === '星星罐', ui.jarTitle)
 
   const jarButtons = await shell.evaluate(`document.querySelectorAll('.jar-actions button').length`)
-  check('星星罐标题有四个操作按钮', jarButtons === 4, `${jarButtons} 个`)
+  check('星星罐标题有五个操作按钮', jarButtons === 5, `${jarButtons} 个`)
 
   const titlebarChrome = JSON.parse(
     await shell.evaluate(`(() => {
@@ -204,8 +204,8 @@ try {
     `返回 x=${titlebarChrome.backLeft}，对齐=${titlebarChrome.toggleAligned}`
   )
 
-  await parkOn(`document.querySelector('.jar-actions button')`)
-  await shell.evaluate(`document.querySelector('.jar-actions button').click()`)
+  await parkOn(`document.querySelector('.jar-actions button[aria-label="添加"]')`)
+  await shell.evaluate(`document.querySelector('.jar-actions button[aria-label="添加"]').click()`)
   await sleep(600)
   const addItems = JSON.parse((await overlayLabels()) ?? '[]')
   check('加号可添加文件夹或文件', addItems.join(',') === '添加文件夹,添加文件', addItems.join(','))
@@ -234,8 +234,8 @@ try {
   await sleep(300)
   await shell.evaluate(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))`)
   await sleep(300)
-  await parkOn(`document.querySelector('.jar-actions button')`)
-  await shell.evaluate(`document.querySelector('.jar-actions button').click()`)
+  await parkOn(`document.querySelector('.jar-actions button[aria-label="添加"]')`)
+  await shell.evaluate(`document.querySelector('.jar-actions button[aria-label="添加"]').click()`)
   await sleep(600)
   const cardTop = await withOverlay((overlay) => overlay.evaluate(`Math.round(document.getElementById('card').getBoundingClientRect().top)`))
   check('弹层不覆盖触发按钮', cardTop === 0, `卡片距视图顶部 ${cardTop}px`)
@@ -263,6 +263,37 @@ try {
   check('标题栏内的自绘菜单', ui.hasMenubar === 3, `${ui.hasMenubar} 个菜单`)
   check('大纲默认隐藏', ui.outlinePanels === 0, `${ui.outlinePanels} 个面板`)
   check('左侧图标栏只保留主页按钮', ui.railButtons === 1, `${ui.railButtons} 个按钮`)
+
+  // 星星罐排序：名称倒序后文件顺序反过来
+  const treeFiles = () =>
+    shell.evaluate(
+      `JSON.stringify([...document.querySelectorAll('.panel-left .tree-row')]
+        .map((el) => el.textContent.trim())
+        .filter((text) => text.endsWith('.html')))`
+    )
+  const filesAsc = JSON.parse(await treeFiles())
+  await parkOn(`document.querySelector('.jar-header')`)
+  await shell.evaluate(`document.querySelector('.jar-sort').click()`)
+  await sleep(600)
+  const sortLabels = await overlayLabels()
+  await overlayClick('名称 · 倒序')
+  await sleep(500)
+  const filesDesc = JSON.parse(await treeFiles())
+  await parkOn(`document.querySelector('.jar-header')`)
+  await shell.evaluate(`document.querySelector('.jar-sort').click()`)
+  await sleep(600)
+  await overlayClick('名称 · 正序')
+  await sleep(500)
+  const filesRestored = JSON.parse(await treeFiles())
+  check(
+    '星星罐可以按名称排序',
+    sortLabels.includes('名称 · 正序') &&
+      sortLabels.includes('时间 · 倒序（新在前）') &&
+      filesAsc.length >= 2 &&
+      filesDesc[0] === filesAsc[filesAsc.length - 1] &&
+      JSON.stringify(filesRestored) === JSON.stringify(filesAsc),
+    `正序 ${filesAsc.join(',')} / 倒序 ${filesDesc.join(',')}`
+  )
 
   // 隐藏文件列表时，左侧图标栏也一起收起，正文占满空出来的宽度
   const centerBefore = await shell.evaluate(`Math.round(document.querySelector('.center').getBoundingClientRect().width)`)

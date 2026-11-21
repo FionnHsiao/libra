@@ -104,18 +104,30 @@ export function registerIpc(): void {
   ipcMain.handle(CH.readDir, async (_event, rawDir: unknown): Promise<DirListing> => {
     const dir = assertDirectoryPath(rawDir)
     const dirents = await fs.readdir(dir, { withFileTypes: true })
-    const entries: DirListing['entries'] = []
+    const picked = dirents.filter((entry) => {
+      if (entry.name.startsWith('.')) return false
+      if (entry.isDirectory()) return entry.name !== 'node_modules'
+      return entry.isFile() && htmlExtensions.has(extname(entry.name).toLowerCase())
+    })
 
-    for (const entry of dirents) {
-      if (entry.name.startsWith('.')) continue
-      const fullPath = join(dir, entry.name)
-      if (entry.isDirectory()) {
-        if (entry.name === 'node_modules') continue
-        entries.push({ name: entry.name, path: fullPath, kind: 'dir' })
-      } else if (entry.isFile() && htmlExtensions.has(extname(entry.name).toLowerCase())) {
-        entries.push({ name: entry.name, path: fullPath, kind: 'file' })
-      }
-    }
+    // 按时间排序需要 mtime；目录条目通常不多，这里顺手 stat 一次
+    const entries: DirListing['entries'] = await Promise.all(
+      picked.map(async (entry) => {
+        const fullPath = join(dir, entry.name)
+        let mtimeMs: number | undefined
+        try {
+          mtimeMs = (await fs.stat(fullPath)).mtimeMs
+        } catch {
+          /* 读不到时间就不参与时间排序 */
+        }
+        return {
+          name: entry.name,
+          path: fullPath,
+          kind: entry.isDirectory() ? ('dir' as const) : ('file' as const),
+          mtimeMs
+        }
+      })
+    )
 
     entries.sort((left, right) => {
       if (left.kind !== right.kind) return left.kind === 'dir' ? -1 : 1
@@ -126,7 +138,17 @@ export function registerIpc(): void {
   })
 
   ipcMain.handle(CH.entriesGet, async () => {
-    return loadEntries()
+    const entries = loadEntries()
+    // 星星罐根条目也要能按时间排；这里补一次 mtime，不写回设置文件
+    return Promise.all(
+      entries.map(async (entry) => {
+        try {
+          return { ...entry, mtimeMs: (await fs.stat(entry.path)).mtimeMs }
+        } catch {
+          return entry
+        }
+      })
+    )
   })
 
   ipcMain.on(CH.entriesSet, (_event, rawEntries: unknown) => {

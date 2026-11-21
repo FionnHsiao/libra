@@ -29,12 +29,16 @@ export interface OverlayOpenPayload {
 export interface JarEntry {
   kind: 'dir' | 'file'
   path: string
+  /** 只在读取时补上，不写回设置文件 */
+  mtimeMs?: number
 }
 
 export interface TreeEntry {
   name: string
   path: string
   kind: 'dir' | 'file'
+  /** 修改时间，按时间排序用；拿不到时缺省 */
+  mtimeMs?: number
 }
 
 export interface DirListing {

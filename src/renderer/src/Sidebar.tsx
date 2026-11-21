@@ -2,6 +2,7 @@ import { useCallback, useEffect, useReducer, useRef, useState, type ReactElement
 import type { JarEntry, OutlineItem, TreeEntry } from '../../shared/protocol'
 import { HtmlFileIcon } from './MenuBar'
 import { openOverlayMenu } from './overlayMenu'
+import { DEFAULT_SORT, sortEntries, type SortState } from './sortEntries'
 import { baseName, dirName } from './paths'
 
 function ChevronIcon({ open }: { open: boolean }): ReactElement {
@@ -67,6 +68,15 @@ function ExpandIcon(): ReactElement {
   )
 }
 
+function SortIcon(): ReactElement {
+  return (
+    <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+      <path d="M2.6 4.4h6.2M2.6 8h4.2M2.6 11.6h2.4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M12.2 3v9.2M9.9 10l2.3 2.3 2.3-2.3" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 function RenameInput({
   defaultValue,
   onCommit,
@@ -111,6 +121,7 @@ interface TreeNodeProps {
   isRoot?: boolean
   expanded: Set<string>
   entries: Record<string, TreeEntry[]>
+  sort: SortState
   renaming: string | null
   onToggle: (path: string) => void
   onOpenFile: (path: string) => void
@@ -128,6 +139,7 @@ function TreeNode(props: TreeNodeProps): ReactElement {
     isRoot,
     expanded,
     entries,
+    sort,
     renaming,
     onToggle,
     onOpenFile,
@@ -141,7 +153,8 @@ function TreeNode(props: TreeNodeProps): ReactElement {
   const open = isDir && expanded.has(entry.path)
   const isActive = !isDir && entry.path === activePath
   const indent = isRoot ? 8 : 6 + depth * 13
-  const children = entries[entry.path]
+  const raw = entries[entry.path]
+  const children = raw === undefined ? undefined : sortEntries(raw, sort)
   const isRenaming = renaming === entry.path
 
   return (
@@ -196,6 +209,7 @@ function TreeNode(props: TreeNodeProps): ReactElement {
                 activePath={activePath}
                 expanded={expanded}
                 entries={entries}
+                sort={sort}
                 renaming={renaming}
                 onToggle={onToggle}
                 onOpenFile={onOpenFile}
@@ -231,6 +245,7 @@ export function FileTree(props: FileTreeProps): ReactElement {
 
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(roots))
   const [renaming, setRenaming] = useState<string | null>(null)
+  const [sort, setSort] = useState<SortState>(DEFAULT_SORT)
 
   const entriesRef = useRef<Record<string, TreeEntry[]>>({})
   const [, bump] = useReducer((value: number) => value + 1, 0)
@@ -334,6 +349,36 @@ export function FileTree(props: FileTreeProps): ReactElement {
     [onAddDir, onAddFile]
   )
 
+  const openSortMenu = useCallback(
+    (event: React.MouseEvent) => {
+      event.stopPropagation()
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+      const options: Array<{ label: string; key: SortState['key']; dir: SortState['dir'] }> = [
+        { label: '名称 · 正序', key: 'name', dir: 'asc' },
+        { label: '名称 · 倒序', key: 'name', dir: 'desc' },
+        { label: '时间 · 正序（旧在前）', key: 'time', dir: 'asc' },
+        { label: '时间 · 倒序（新在前）', key: 'time', dir: 'desc' }
+      ]
+      const width = 196
+      openOverlayMenu(
+        options.map((option) => ({
+          type: 'item' as const,
+          label: option.label,
+          checked: sort.key === option.key && sort.dir === option.dir,
+          onSelect: () => setSort({ key: option.key, dir: option.dir })
+        })),
+        {
+          x: Math.round(rect.right - width),
+          y: Math.round(rect.bottom + 6),
+          width,
+          trigger: { x: rect.left, y: rect.top, width: rect.width, height: rect.height }
+        },
+        () => undefined
+      )
+    },
+    [sort]
+  )
+
   const openContextMenu = useCallback(
     (event: React.MouseEvent, entry: TreeEntry, isRoot: boolean) => {
       event.preventDefault()
@@ -375,11 +420,24 @@ export function FileTree(props: FileTreeProps): ReactElement {
     [ensureLoaded, onError, onRenamed]
   )
 
+  const visibleEntries = sortEntries(
+    entries.map((entry) => ({
+      name: baseName(entry.path),
+      path: entry.path,
+      kind: entry.kind,
+      mtimeMs: entry.mtimeMs
+    })),
+    sort
+  )
+
   return (
     <aside className="panel-left" style={{ width, flex: '0 0 auto' }}>
       <div className="jar-header">
         <span className="jar-title">星星罐</span>
         <span className="jar-actions" onClick={(event) => event.stopPropagation()}>
+          <button type="button" className="jar-sort" title="排序" aria-label="排序" aria-haspopup="menu" onClick={openSortMenu}>
+            <SortIcon />
+          </button>
           <button type="button" title="添加文件夹或文件" aria-label="添加" onClick={openAddMenu}>
             <PlusIcon />
           </button>
@@ -396,10 +454,10 @@ export function FileTree(props: FileTreeProps): ReactElement {
       </div>
 
       <div className="tree-list">
-        {entries.length === 0 ? (
+        {visibleEntries.length === 0 ? (
           <p className="jar-empty">还没有内容。点上面的 + 添加文件夹或文件，也可以按 Ctrl+O 打开单个文件。</p>
         ) : (
-          entries.map((entry) =>
+          visibleEntries.map((entry) =>
             entry.kind === 'dir' ? (
               <TreeNode
                 key={entry.path}
@@ -409,6 +467,7 @@ export function FileTree(props: FileTreeProps): ReactElement {
                 isRoot
                 expanded={expanded}
                 entries={entriesRef.current}
+                sort={sort}
                 renaming={renaming}
                 onToggle={toggle}
                 onOpenFile={onOpenFile}
